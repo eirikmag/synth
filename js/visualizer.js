@@ -47,11 +47,11 @@ export class Visualizer {
     analyser.getByteTimeDomainData(buffer);
 
     // Background
-    ctx.fillStyle = '#0a0e1a';
+    ctx.fillStyle = '#060610';
     ctx.fillRect(0, 0, w, h);
 
     // Centre line
-    ctx.strokeStyle = '#0f3460';
+    ctx.strokeStyle = '#1a1a2a';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, h / 2);
@@ -59,7 +59,7 @@ export class Visualizer {
     ctx.stroke();
 
     // Waveform
-    ctx.strokeStyle = '#e94560';
+    ctx.strokeStyle = '#5bc0eb';
     ctx.lineWidth = 2;
     ctx.beginPath();
 

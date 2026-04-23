@@ -3,148 +3,283 @@
 
 body {
   font-family: 'Segoe UI', system-ui, sans-serif;
-  background: #1a1a2e;
-  color: #e0e0e0;
+  background: #111118;
+  color: #d0d0d0;
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
+  overflow: hidden;
 }
 
-/* ===== Panel ===== */
-.synth-panel {
-  background: #16213e;
-  border: 1px solid #0f3460;
-  border-radius: 12px;
-  padding: 32px 40px;
-  width: 720px;
-  max-width: 95vw;
-  box-shadow: 0 8px 32px rgba(0,0,0,.45);
+/* ===== Synth enclosure ===== */
+.synth {
+  width: 1100px;
+  max-width: 98vw;
+  background: #1c1c26;
+  border-radius: 14px 14px 4px 4px;
+  box-shadow:
+    0 4px 20px rgba(0,0,0,.6),
+    inset 0 1px 0 rgba(255,255,255,.04);
+  overflow: hidden;
 }
 
-header {
+/* ===== Panel (top control surface) ===== */
+.panel {
+  padding: 16px 24px 20px;
+  background:
+    linear-gradient(180deg, #22222e 0%, #1a1a24 100%);
+  border-bottom: 2px solid #0e0e14;
+}
+
+/* -- brand strip -- */
+.panel-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 28px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
 }
 
-h1 {
-  font-size: 1.4rem;
-  letter-spacing: 6px;
-  color: #e94560;
-}
-
-/* ===== Note display ===== */
-.note-display {
-  font-size: 1.6rem;
-  font-weight: 700;
-  min-width: 64px;
-  text-align: center;
-  padding: 4px 12px;
-  border-radius: 6px;
-  background: #0f3460;
-  transition: color .08s;
-}
-.note-display.active { color: #e94560; }
-
-/* ===== Controls ===== */
-.controls {
-  display: flex;
-  gap: 32px;
-  flex-wrap: wrap;
-  margin-bottom: 28px;
-}
-
-.control-group {
-  flex: 1 1 200px;
-}
-
-.control-group label {
-  display: block;
-  font-size: .75rem;
+.brand {
+  font-size: .85rem;
+  font-weight: 800;
+  letter-spacing: 8px;
+  color: #5bc0eb;
   text-transform: uppercase;
-  letter-spacing: 2px;
-  color: #888;
-  margin-bottom: 8px;
 }
 
-/* Waveform buttons */
-.waveform-selector {
+.note-display {
+  font-size: 1.1rem;
+  font-weight: 700;
+  min-width: 52px;
+  text-align: center;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: #0a0a12;
+  border: 1px solid #2a2a3a;
+  color: #555;
+  font-family: 'Consolas', 'Courier New', monospace;
+  transition: color .06s;
+}
+.note-display.active { color: #5bc0eb; }
+
+/* -- sections row -- */
+.panel-sections {
   display: flex;
+  gap: 2px;
+}
+
+.section {
+  flex: 1;
+  background: rgba(255,255,255,.015);
+  border: 1px solid rgba(255,255,255,.04);
+  border-radius: 6px;
+  padding: 10px 12px;
+  min-height: 150px;
+}
+
+.section-label {
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #5bc0eb;
+  margin-bottom: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(91,192,235,.15);
+}
+
+.section-body {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+/* -- blank sections (future) -- */
+.section.blank {
+  opacity: .35;
+}
+.blank-body {
+  flex: 1;
+  min-height: 90px;
+}
+
+/* ===== Knob groups ===== */
+.knob-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 6px;
 }
 
-.waveform-btn {
-  flex: 1;
-  padding: 8px 0;
-  border: 1px solid #0f3460;
-  border-radius: 6px;
-  background: #1a1a2e;
-  color: #ccc;
-  font-size: .8rem;
+.knob-group label,
+.adsr-knob label {
+  font-size: .6rem;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #888;
+}
+
+.knob-value {
+  font-size: .6rem;
+  color: #777;
+  font-family: 'Consolas', monospace;
+}
+
+/* ===== Waveform selector ===== */
+.waveform-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.waveform-btn,
+.mode-btn,
+.arp-div-btn,
+.arp-mode-btn {
+  padding: 6px 8px;
+  border: 1px solid #2a2a3a;
+  border-radius: 4px;
+  background: #0e0e18;
+  color: #777;
+  font-size: .65rem;
+  font-weight: 600;
+  letter-spacing: 1px;
   cursor: pointer;
-  transition: all .12s;
+  transition: all .1s;
 }
-.waveform-btn:hover { border-color: #e94560; color: #fff; }
-.waveform-btn.active {
-  background: #e94560;
-  border-color: #e94560;
-  color: #fff;
+.waveform-btn:hover,
+.mode-btn:hover,
+.arp-div-btn:hover,
+.arp-mode-btn:hover {
+  border-color: #5bc0eb;
+  color: #bbb;
+}
+.waveform-btn.active,
+.mode-btn.active,
+.arp-div-btn.active,
+.arp-mode-btn.active {
+  background: #5bc0eb;
+  border-color: #5bc0eb;
+  color: #0a0a14;
 }
 
-/* Volume slider */
-.slider-row {
+/* ===== Mode selector ===== */
+.mode-selector {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 4px;
 }
 
-input[type="range"] {
-  flex: 1;
+/* ===== Arp section ===== */
+#arp-section {
+  transition: opacity .2s;
+}
+#arp-section.disabled {
+  opacity: .3;
+  pointer-events: none;
+}
+
+.arp-body {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.arp-div-selector,
+.arp-mode-selector {
+  display: flex;
+  gap: 4px;
+}
+
+/* ===== Range sliders (volume) ===== */
+.knob-slider {
   -webkit-appearance: none;
   appearance: none;
-  height: 6px;
-  border-radius: 3px;
-  background: #0f3460;
+  width: 60px;
+  height: 4px;
+  border-radius: 2px;
+  background: #2a2a3a;
   outline: none;
 }
-input[type="range"]::-webkit-slider-thumb {
+.knob-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: #e94560;
+  background: #5bc0eb;
+  border: 2px solid #0e0e18;
   cursor: pointer;
 }
 
-#volume-value {
-  font-size: .85rem;
-  min-width: 36px;
-  text-align: right;
+/* ===== ADSR vertical sliders ===== */
+.adsr-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
 }
 
-/* ===== Oscilloscope ===== */
-.scope-wrap {
-  margin-bottom: 20px;
-  border-radius: 8px;
+.adsr-knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.adsr-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  height: 72px;
+  width: 4px;
+  border-radius: 2px;
+  background: #2a2a3a;
+  outline: none;
+}
+.adsr-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #5bc0eb;
+  border: 2px solid #0e0e18;
+  cursor: pointer;
+}
+
+/* ===== OLED display (oscilloscope) ===== */
+.display-section {
+  flex: 1.4;
+}
+
+.oled {
+  background: #060610;
+  border-radius: 4px;
+  border: 1px solid #1a1a2a;
   overflow: hidden;
-  border: 1px solid #0f3460;
+  box-shadow: inset 0 0 12px rgba(0,0,0,.8);
 }
 
 #oscilloscope {
   display: block;
   width: 100%;
-  height: 120px;
-  background: #0a0e1a;
+  height: 100px;
 }
 
-/* ===== Piano visual ===== */
+/* ===== Keyboard area ===== */
+.keyboard-area {
+  background: #141420;
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255,255,255,.03);
+}
+
 .piano {
   display: flex;
-  gap: 3px;
+  gap: 2px;
   justify-content: center;
-  margin-bottom: 20px;
+  position: relative;
 }
 
 .piano-key {
@@ -152,53 +287,50 @@ input[type="range"]::-webkit-slider-thumb {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  padding-bottom: 6px;
-  border-radius: 0 0 5px 5px;
-  cursor: default;
+  padding-bottom: 5px;
+  border-radius: 0 0 4px 4px;
   user-select: none;
-  transition: background .06s;
+  transition: background .05s;
+  cursor: pointer;
 }
 
 .piano-key.white {
-  width: 42px;
-  height: 120px;
-  background: #d4d4dc;
-  color: #333;
-  cursor: pointer;
+  width: 38px;
+  height: 100px;
+  background: linear-gradient(180deg, #e8e8ec 0%, #d0d0d8 100%);
+  color: #555;
+  border: 1px solid #aaa;
+  border-top: none;
 }
+.piano-key.white:active,
 .piano-key.white.pressed {
-  background: #e94560;
+  background: linear-gradient(180deg, #5bc0eb 0%, #3aa0d0 100%);
   color: #fff;
+  border-color: #3aa0d0;
 }
 
 .piano-key.black {
-  width: 30px;
-  height: 80px;
-  background: #222;
-  color: #999;
+  width: 26px;
+  height: 66px;
+  background: linear-gradient(180deg, #2a2a34 0%, #18181e 100%);
+  color: #666;
   margin: 0 -8px;
   z-index: 1;
-  border: 1px solid #111;
-  cursor: pointer;
+  border: 1px solid #0a0a0e;
+  border-top: none;
 }
+.piano-key.black:active,
 .piano-key.black.pressed {
-  background: #c0392b;
+  background: linear-gradient(180deg, #3aa0d0 0%, #2888b0 100%);
   color: #fff;
 }
 
 .key-label {
-  font-size: .7rem;
+  font-size: .55rem;
   font-weight: 700;
-  opacity: .7;
+  opacity: .6;
 }
 .note-label {
-  font-size: .6rem;
-  opacity: .5;
-}
-
-/* ===== Footer ===== */
-footer {
-  text-align: center;
-  font-size: .75rem;
-  color: #555;
+  font-size: .5rem;
+  opacity: .4;
 }

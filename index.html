@@ -7,46 +7,128 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <div class="synth-panel">
-    <header>
-      <h1>SYNTH</h1>
-      <div id="note-display" class="note-display">—</div>
-    </header>
+  <div class="synth">
 
-    <section class="controls">
-      <!-- Waveform selector -->
-      <div class="control-group">
-        <label>Waveform</label>
-        <div class="waveform-selector">
-          <button class="waveform-btn" data-waveform="sine">Sine</button>
-          <button class="waveform-btn" data-waveform="square">Square</button>
-          <button class="waveform-btn active" data-waveform="sawtooth">Saw</button>
-          <button class="waveform-btn" data-waveform="triangle">Triangle</button>
-        </div>
+    <!-- ===== TOP PANEL (control surface) ===== -->
+    <div class="panel">
+
+      <!-- Brand strip -->
+      <div class="panel-top">
+        <span class="brand">SYNTH</span>
+        <div id="note-display" class="note-display">—</div>
       </div>
 
-      <!-- Volume -->
-      <div class="control-group">
-        <label>Volume</label>
-        <div class="slider-row">
-          <input type="range" id="volume" min="0" max="1" step="0.01" value="0.5" />
-          <span id="volume-value">50%</span>
+      <!-- Control sections -->
+      <div class="panel-sections">
+
+        <!-- OSCILLATOR -->
+        <div class="section">
+          <div class="section-label">OSCILLATOR</div>
+          <div class="section-body">
+            <div class="knob-group">
+              <label>Type</label>
+              <div class="waveform-selector">
+                <button class="waveform-btn active" data-waveform="sawtooth">SAW</button>
+                <button class="waveform-btn" data-waveform="square">SQR</button>
+                <button class="waveform-btn" data-waveform="sine">SIN</button>
+                <button class="waveform-btn" data-waveform="triangle">TRI</button>
+              </div>
+            </div>
+            <div class="knob-group">
+              <label>Volume</label>
+              <input type="range" id="volume" class="knob-slider" min="0" max="1" step="0.01" value="0.5" />
+              <span class="knob-value" id="volume-value">50%</span>
+            </div>
+            <div class="knob-group">
+              <label>Mode</label>
+              <div class="mode-selector">
+                <button class="mode-btn active" data-mode="mono">MONO</button>
+                <button class="mode-btn" data-mode="poly">POLY</button>
+                <button class="mode-btn" data-mode="arp">ARP</button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
 
-    <!-- Oscilloscope -->
-    <section class="scope-wrap">
-      <canvas id="oscilloscope"></canvas>
-    </section>
+        <!-- FILTER (blank placeholder) -->
+        <div class="section blank">
+          <div class="section-label">FILTER</div>
+          <div class="section-body blank-body"></div>
+        </div>
 
-    <!-- Visual keyboard -->
-    <section id="piano" class="piano"></section>
+        <!-- DISPLAY (center OLED) -->
+        <div class="section display-section">
+          <div class="section-label">DISPLAY</div>
+          <div class="oled">
+            <canvas id="oscilloscope"></canvas>
+          </div>
+        </div>
 
-    <footer>
-      <p>Play with your keyboard — bottom two rows are the lower octave, top rows the upper octave.</p>
-    </footer>
-  </div>
+        <!-- ENVELOPE -->
+        <div class="section">
+          <div class="section-label">ENVELOPE</div>
+          <div class="section-body adsr-row">
+            <div class="adsr-knob">
+              <label>A</label>
+              <input type="range" class="adsr-slider" id="attack" min="0.001" max="2" step="0.001" value="0.01" />
+              <span class="knob-value" id="attack-value">10ms</span>
+            </div>
+            <div class="adsr-knob">
+              <label>D</label>
+              <input type="range" class="adsr-slider" id="decay" min="0.001" max="2" step="0.001" value="0.1" />
+              <span class="knob-value" id="decay-value">100ms</span>
+            </div>
+            <div class="adsr-knob">
+              <label>S</label>
+              <input type="range" class="adsr-slider" id="sustain" min="0" max="1" step="0.01" value="0.7" />
+              <span class="knob-value" id="sustain-value">70%</span>
+            </div>
+            <div class="adsr-knob">
+              <label>R</label>
+              <input type="range" class="adsr-slider" id="release" min="0.001" max="3" step="0.001" value="0.3" />
+              <span class="knob-value" id="release-value">300ms</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ARPEGGIATOR -->
+        <div class="section" id="arp-section">
+          <div class="section-label">ARPEGGIATOR</div>
+          <div class="section-body arp-body">
+            <div class="knob-group">
+              <label>BPM</label>
+              <input type="range" id="arp-bpm" class="knob-slider" min="20" max="300" step="1" value="120" />
+              <span class="knob-value" id="arp-bpm-value">120</span>
+            </div>
+            <div class="knob-group">
+              <label>Division</label>
+              <div class="arp-div-selector">
+                <button class="arp-div-btn" data-div="1/4">1/4</button>
+                <button class="arp-div-btn active" data-div="1/8">1/8</button>
+                <button class="arp-div-btn" data-div="1/16">1/16</button>
+                <button class="arp-div-btn" data-div="1/32">1/32</button>
+              </div>
+            </div>
+            <div class="knob-group">
+              <label>Pattern</label>
+              <div class="arp-mode-selector">
+                <button class="arp-mode-btn active" data-arpmode="up">UP</button>
+                <button class="arp-mode-btn" data-arpmode="down">DN</button>
+                <button class="arp-mode-btn" data-arpmode="random">RND</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /panel-sections -->
+    </div><!-- /panel -->
+
+    <!-- ===== KEYBOARD ===== -->
+    <div class="keyboard-area">
+      <section id="piano" class="piano"></section>
+    </div>
+
+  </div><!-- /synth -->
 
   <script type="module" src="js/main.js"></script>
 </body>

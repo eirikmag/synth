@@ -9,29 +9,39 @@ export class UIManager {
    * @param {object} callbacks
    * @param {function(waveform: string)} callbacks.onWaveformChange
    * @param {function(volume: number)}   callbacks.onVolumeChange
+   * @param {function(object)} callbacks.onADSRChange
    * @param {function(frequency: number, midi: number, noteName: string)} callbacks.onNoteOn
    * @param {function(midi: number)} callbacks.onNoteOff
    */
   constructor(callbacks) {
     this._callbacks = callbacks;
-    this._activeTouchMidi = null;  // track mouse/touch-held note
+    this._activeTouchMidi = null;
 
     // DOM references (resolved in init)
     this._waveformBtns = null;
+    this._modeBtns = null;
     this._volumeSlider = null;
     this._volumeValue = null;
     this._noteDisplay = null;
     this._pianoKeys = null;
+    this._adsrSliders = {};
+    this._adsrValues = {};
+    this._arpSection = null;
   }
 
   init() {
     this._waveformBtns = document.querySelectorAll('.waveform-btn');
+    this._modeBtns = document.querySelectorAll('.mode-btn');
     this._volumeSlider = document.getElementById('volume');
     this._volumeValue = document.getElementById('volume-value');
     this._noteDisplay = document.getElementById('note-display');
+    this._arpSection = document.getElementById('arp-section');
 
     this._bindWaveformButtons();
     this._bindVolumeSlider();
+    this._bindADSR();
+    this._bindPlayMode();
+    this._bindArpControls();
     this._buildPianoVisual();
   }
 
@@ -66,6 +76,106 @@ export class UIManager {
   setVolume(value) {
     this._volumeSlider.value = value;
     this._volumeValue.textContent = Math.round(value * 100) + '%';
+  }
+
+  /* --- ADSR sliders --- */
+
+  _formatADSR(param, value) {
+    if (param === 'sustain') return Math.round(value * 100) + '%';
+    return value >= 1 ? value.toFixed(2) + 's' : Math.round(value * 1000) + 'ms';
+  }
+
+  _bindADSR() {
+    ['attack', 'decay', 'sustain', 'release'].forEach(param => {
+      const slider = document.getElementById(param);
+      const display = document.getElementById(param + '-value');
+      this._adsrSliders[param] = slider;
+      this._adsrValues[param] = display;
+
+      slider.addEventListener('input', () => {
+        const v = parseFloat(slider.value);
+        display.textContent = this._formatADSR(param, v);
+        this._callbacks.onADSRChange({ [param]: v });
+      });
+    });
+  }
+
+  setADSR(adsr) {
+    for (const [param, value] of Object.entries(adsr)) {
+      if (this._adsrSliders[param]) {
+        this._adsrSliders[param].value = value;
+        this._adsrValues[param].textContent = this._formatADSR(param, value);
+      }
+    }
+  }
+
+  /* --- play mode (mono / poly / arp) --- */
+
+  _bindPlayMode() {
+    this._modeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._modeBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mode = btn.dataset.mode;
+        this._toggleArpSection(mode === 'arp');
+        this._callbacks.onPlayModeChange(mode);
+      });
+    });
+  }
+
+  setPlayMode(mode) {
+    this._modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    this._toggleArpSection(mode === 'arp');
+  }
+
+  _toggleArpSection(enabled) {
+    if (this._arpSection) {
+      this._arpSection.classList.toggle('disabled', !enabled);
+    }
+  }
+
+  /* --- arpeggiator controls --- */
+
+  _bindArpControls() {
+    // BPM slider
+    const bpmSlider = document.getElementById('arp-bpm');
+    const bpmValue = document.getElementById('arp-bpm-value');
+    if (bpmSlider) {
+      bpmSlider.addEventListener('input', () => {
+        const v = parseInt(bpmSlider.value);
+        bpmValue.textContent = v;
+        this._callbacks.onArpBPMChange(v);
+      });
+    }
+
+    // Division buttons
+    document.querySelectorAll('.arp-div-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.arp-div-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this._callbacks.onArpDivisionChange(btn.dataset.div);
+      });
+    });
+
+    // Mode buttons (up/down/random)
+    document.querySelectorAll('.arp-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.arp-mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this._callbacks.onArpModeChange(btn.dataset.arpmode);
+      });
+    });
+  }
+
+  setArpSettings({ bpm, division, mode }) {
+    const bpmSlider = document.getElementById('arp-bpm');
+    const bpmValue = document.getElementById('arp-bpm-value');
+    if (bpmSlider) { bpmSlider.value = bpm; bpmValue.textContent = bpm; }
+
+    document.querySelectorAll('.arp-div-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.div === division));
+    document.querySelectorAll('.arp-mode-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.arpmode === mode));
   }
 
   /* --- note display --- */
