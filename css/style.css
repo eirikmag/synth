@@ -1,0 +1,204 @@
+/* ===== Reset & base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* ===== Panel ===== */
+.synth-panel {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 12px;
+  padding: 32px 40px;
+  width: 720px;
+  max-width: 95vw;
+  box-shadow: 0 8px 32px rgba(0,0,0,.45);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+h1 {
+  font-size: 1.4rem;
+  letter-spacing: 6px;
+  color: #e94560;
+}
+
+/* ===== Note display ===== */
+.note-display {
+  font-size: 1.6rem;
+  font-weight: 700;
+  min-width: 64px;
+  text-align: center;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: #0f3460;
+  transition: color .08s;
+}
+.note-display.active { color: #e94560; }
+
+/* ===== Controls ===== */
+.controls {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+.control-group {
+  flex: 1 1 200px;
+}
+
+.control-group label {
+  display: block;
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #888;
+  margin-bottom: 8px;
+}
+
+/* Waveform buttons */
+.waveform-selector {
+  display: flex;
+  gap: 6px;
+}
+
+.waveform-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  background: #1a1a2e;
+  color: #ccc;
+  font-size: .8rem;
+  cursor: pointer;
+  transition: all .12s;
+}
+.waveform-btn:hover { border-color: #e94560; color: #fff; }
+.waveform-btn.active {
+  background: #e94560;
+  border-color: #e94560;
+  color: #fff;
+}
+
+/* Volume slider */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #0f3460;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e94560;
+  cursor: pointer;
+}
+
+#volume-value {
+  font-size: .85rem;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ===== Oscilloscope ===== */
+.scope-wrap {
+  margin-bottom: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #0f3460;
+}
+
+#oscilloscope {
+  display: block;
+  width: 100%;
+  height: 120px;
+  background: #0a0e1a;
+}
+
+/* ===== Piano visual ===== */
+.piano {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.piano-key {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 6px;
+  border-radius: 0 0 5px 5px;
+  cursor: default;
+  user-select: none;
+  transition: background .06s;
+}
+
+.piano-key.white {
+  width: 42px;
+  height: 120px;
+  background: #d4d4dc;
+  color: #333;
+  cursor: pointer;
+}
+.piano-key.white.pressed {
+  background: #e94560;
+  color: #fff;
+}
+
+.piano-key.black {
+  width: 30px;
+  height: 80px;
+  background: #222;
+  color: #999;
+  margin: 0 -8px;
+  z-index: 1;
+  border: 1px solid #111;
+  cursor: pointer;
+}
+.piano-key.black.pressed {
+  background: #c0392b;
+  color: #fff;
+}
+
+.key-label {
+  font-size: .7rem;
+  font-weight: 700;
+  opacity: .7;
+}
+.note-label {
+  font-size: .6rem;
+  opacity: .5;
+}
+
+/* ===== Footer ===== */
+footer {
+  text-align: center;
+  font-size: .75rem;
+  color: #555;
+}
