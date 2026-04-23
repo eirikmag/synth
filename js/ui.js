@@ -1,84 +1,284 @@
 /**
  * UI module — binds DOM controls to engine parameters and shows visual feedback.
+ * Supports dual oscillators (each with waveform + volume) and arp popup.
  */
 
 import { KEY_TO_MIDI, midiToFreq, midiToName } from './keyboard.js';
 
 export class UIManager {
-  /**
-   * @param {object} callbacks
-   * @param {function(waveform: string)} callbacks.onWaveformChange
-   * @param {function(volume: number)}   callbacks.onVolumeChange
-   * @param {function(object)} callbacks.onADSRChange
-   * @param {function(frequency: number, midi: number, noteName: string)} callbacks.onNoteOn
-   * @param {function(midi: number)} callbacks.onNoteOff
-   */
   constructor(callbacks) {
-    this._callbacks = callbacks;
+    this._cb = callbacks;
     this._activeTouchMidi = null;
-
-    // DOM references (resolved in init)
-    this._waveformBtns = null;
-    this._modeBtns = null;
-    this._volumeSlider = null;
-    this._volumeValue = null;
-    this._noteDisplay = null;
     this._pianoKeys = null;
     this._adsrSliders = {};
     this._adsrValues = {};
-    this._arpSection = null;
+    this._arpPopup = null;
   }
 
   init() {
-    this._waveformBtns = document.querySelectorAll('.waveform-btn');
-    this._modeBtns = document.querySelectorAll('.mode-btn');
-    this._volumeSlider = document.getElementById('volume');
-    this._volumeValue = document.getElementById('volume-value');
     this._noteDisplay = document.getElementById('note-display');
-    this._arpSection = document.getElementById('arp-section');
+    this._arpPopup = document.getElementById('arp-popup');
 
-    this._bindWaveformButtons();
-    this._bindVolumeSlider();
+    this._bindOscWaveforms();
+    this._bindOscVolumes();
+    this._bindOscShapes();
+    this._bindOscPitches();
+    this._bindOscOctaves();
+    this._bindFilter();
     this._bindADSR();
     this._bindPlayMode();
     this._bindArpControls();
     this._buildPianoVisual();
   }
 
-  /* --- waveform selector --- */
+  /* --- oscillator waveforms (per-osc via data-osc attribute) --- */
 
-  _bindWaveformButtons() {
-    this._waveformBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        this._waveformBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this._callbacks.onWaveformChange(btn.dataset.waveform);
+  _bindOscWaveforms() {
+    [1, 2].forEach(oscNum => {
+      const btns = document.querySelectorAll(`.waveform-btn[data-osc="${oscNum}"]`);
+      btns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          btns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          this._cb.onWaveformChange(oscNum, btn.dataset.waveform);
+        });
       });
     });
   }
 
-  setActiveWaveform(type) {
-    this._waveformBtns.forEach(b => {
-      b.classList.toggle('active', b.dataset.waveform === type);
+  setActiveWaveform(oscNum, type) {
+    const btns = document.querySelectorAll(`.waveform-btn[data-osc="${oscNum}"]`);
+    btns.forEach(b => b.classList.toggle('active', b.dataset.waveform === type));
+  }
+
+  /* --- oscillator volumes --- */
+
+  _bindOscVolumes() {
+    [1, 2].forEach(oscNum => {
+      const slider = document.getElementById(`osc${oscNum}-volume`);
+      const display = document.getElementById(`osc${oscNum}-volume-value`);
+      if (!slider) return;
+      slider.addEventListener('input', () => {
+        const v = parseFloat(slider.value);
+        display.textContent = Math.round(v * 100) + '%';
+        this._cb.onVolumeChange(oscNum, v);
+      });
     });
   }
 
-  /* --- volume slider --- */
+  setVolume(oscNum, value) {
+    const slider = document.getElementById(`osc${oscNum}-volume`);
+    const display = document.getElementById(`osc${oscNum}-volume-value`);
+    if (!slider) return;
+    slider.value = value;
+    display.textContent = Math.round(value * 100) + '%';
+  }
 
-  _bindVolumeSlider() {
-    this._volumeSlider.addEventListener('input', () => {
-      const v = parseFloat(this._volumeSlider.value);
-      this._volumeValue.textContent = Math.round(v * 100) + '%';
-      this._callbacks.onVolumeChange(v);
+  /* --- oscillator shape (waveshaper drive) --- */
+
+  _bindOscShapes() {
+    [1, 2].forEach(oscNum => {
+      const slider = document.getElementById(`osc${oscNum}-shape`);
+      const display = document.getElementById(`osc${oscNum}-shape-value`);
+      if (!slider) return;
+      slider.addEventListener('input', () => {
+        const v = parseFloat(slider.value);
+        display.textContent = Math.round(v * 100) + '%';
+        this._cb.onShapeChange(oscNum, v);
+      });
     });
   }
 
-  setVolume(value) {
-    this._volumeSlider.value = value;
-    this._volumeValue.textContent = Math.round(value * 100) + '%';
+  setShape(oscNum, value) {
+    const slider = document.getElementById(`osc${oscNum}-shape`);
+    const display = document.getElementById(`osc${oscNum}-shape-value`);
+    if (!slider) return;
+    slider.value = value;
+    display.textContent = Math.round(value * 100) + '%';
   }
 
-  /* --- ADSR sliders --- */
+  /* --- oscillator pitch (semitones) --- */
+
+  _bindOscPitches() {
+    [1, 2].forEach(oscNum => {
+      const slider = document.getElementById(`osc${oscNum}-pitch`);
+      const display = document.getElementById(`osc${oscNum}-pitch-value`);
+      if (!slider) return;
+      slider.addEventListener('input', () => {
+        const v = parseFloat(slider.value);
+        display.textContent = v.toFixed(2) + ' st';
+        this._cb.onPitchChange(oscNum, v);
+      });
+    });
+  }
+
+  setPitch(oscNum, value) {
+    const slider = document.getElementById(`osc${oscNum}-pitch`);
+    const display = document.getElementById(`osc${oscNum}-pitch-value`);
+    if (!slider) return;
+    slider.value = value;
+    display.textContent = parseFloat(value).toFixed(2) + ' st';
+  }
+
+  /* --- oscillator octave (whole octaves) --- */
+
+  _bindOscOctaves() {
+    [1, 2].forEach(oscNum => {
+      const slider = document.getElementById(`osc${oscNum}-octave`);
+      const display = document.getElementById(`osc${oscNum}-octave-value`);
+      if (!slider) return;
+      slider.addEventListener('input', () => {
+        const v = parseInt(slider.value);
+        display.textContent = (v >= 0 ? '+' : '') + v;
+        this._cb.onOctaveChange(oscNum, v);
+      });
+    });
+  }
+
+  setOctave(oscNum, value) {
+    const slider = document.getElementById(`osc${oscNum}-octave`);
+    const display = document.getElementById(`osc${oscNum}-octave-value`);
+    if (!slider) return;
+    slider.value = value;
+    display.textContent = (value >= 0 ? '+' : '') + value;
+  }
+
+  /* --- filter --- */
+
+  /** Map 0–1000 slider position to 20–20000 Hz (log scale). */
+  _sliderToFreq(pos) {
+    const minLog = Math.log(20);
+    const maxLog = Math.log(20000);
+    return Math.exp(minLog + (pos / 1000) * (maxLog - minLog));
+  }
+
+  /** Map 20–20000 Hz to 0–1000 slider position. */
+  _freqToSlider(hz) {
+    const minLog = Math.log(20);
+    const maxLog = Math.log(20000);
+    return ((Math.log(hz) - minLog) / (maxLog - minLog)) * 1000;
+  }
+
+  _formatCutoff(hz) {
+    if (hz >= 1000) return (hz / 1000).toFixed(1) + 'k';
+    return Math.round(hz) + ' Hz';
+  }
+
+  /** Which controls are visible per filter type. */
+  _filterParamVisibility(type) {
+    switch (type) {
+      case 'lowshelf':
+      case 'highshelf':
+        return { q: true, gain: true, model: false };
+      case 'lowpass':
+        return { q: true, gain: false, model: true };
+      default:            // highpass, bandpass, notch
+        return { q: true, gain: false, model: false };
+    }
+  }
+
+  _updateFilterVisibility(type) {
+    const vis = this._filterParamVisibility(type);
+    const qGroup = document.getElementById('filter-q-group');
+    const gainGroup = document.getElementById('filter-gain-group');
+    const modelGroup = document.getElementById('filter-model-group');
+    if (qGroup) qGroup.classList.toggle('hidden', !vis.q);
+    if (gainGroup) gainGroup.classList.toggle('hidden', !vis.gain);
+    if (modelGroup) modelGroup.classList.toggle('hidden', !vis.model);
+  }
+
+  _bindFilter() {
+    // Type buttons
+    const btns = document.querySelectorAll('.filter-type-btn');
+    btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        btns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this._updateFilterVisibility(btn.dataset.ftype);
+        this._cb.onFilterTypeChange(btn.dataset.ftype);
+      });
+    });
+
+    // Cutoff slider (log scale)
+    const cutoffSlider = document.getElementById('filter-cutoff');
+    const cutoffDisplay = document.getElementById('filter-cutoff-value');
+    if (cutoffSlider) {
+      cutoffSlider.addEventListener('input', () => {
+        const hz = this._sliderToFreq(parseFloat(cutoffSlider.value));
+        cutoffDisplay.textContent = this._formatCutoff(hz);
+        this._cb.onFilterCutoffChange(hz);
+      });
+    }
+
+    // Model buttons (lowpass sub-type)
+    const modelBtns = document.querySelectorAll('.filter-model-btn');
+    modelBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        modelBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this._cb.onFilterModelChange(btn.dataset.model);
+      });
+    });
+
+    // Resonance slider
+    const qSlider = document.getElementById('filter-q');
+    const qDisplay = document.getElementById('filter-q-value');
+    if (qSlider) {
+      qSlider.addEventListener('input', () => {
+        const v = parseFloat(qSlider.value);
+        qDisplay.textContent = v.toFixed(2);
+        this._cb.onFilterQChange(v);
+      });
+    }
+
+    // Gain slider (dB) — used by lowshelf, highshelf, peaking
+    const gainSlider = document.getElementById('filter-gain');
+    const gainDisplay = document.getElementById('filter-gain-value');
+    if (gainSlider) {
+      gainSlider.addEventListener('input', () => {
+        const v = parseFloat(gainSlider.value);
+        gainDisplay.textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB';
+        this._cb.onFilterGainChange(v);
+      });
+    }
+  }
+
+  setFilterType(type) {
+    document.querySelectorAll('.filter-type-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.ftype === type));
+    this._updateFilterVisibility(type);
+  }
+
+  setFilterModel(model) {
+    document.querySelectorAll('.filter-model-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.model === model));
+  }
+
+  setFilterCutoff(value) {
+    const slider = document.getElementById('filter-cutoff');
+    const display = document.getElementById('filter-cutoff-value');
+    if (!slider) return;
+    slider.value = this._freqToSlider(value);
+    display.textContent = this._formatCutoff(value);
+  }
+
+  setFilterQ(value) {
+    const slider = document.getElementById('filter-q');
+    const display = document.getElementById('filter-q-value');
+    if (!slider) return;
+    slider.value = value;
+    display.textContent = value.toFixed(2);
+  }
+
+  setFilterGain(value) {
+    const slider = document.getElementById('filter-gain');
+    const display = document.getElementById('filter-gain-value');
+    if (!slider) return;
+    slider.value = value;
+    display.textContent = (value >= 0 ? '+' : '') + parseFloat(value).toFixed(1) + ' dB';
+  }
+
+  /* --- ADSR --- */
 
   _formatADSR(param, value) {
     if (param === 'sustain') return Math.round(value * 100) + '%';
@@ -95,7 +295,7 @@ export class UIManager {
       slider.addEventListener('input', () => {
         const v = parseFloat(slider.value);
         display.textContent = this._formatADSR(param, v);
-        this._callbacks.onADSRChange({ [param]: v });
+        this._cb.onADSRChange({ [param]: v });
       });
     });
   }
@@ -112,57 +312,57 @@ export class UIManager {
   /* --- play mode (mono / poly / arp) --- */
 
   _bindPlayMode() {
+    this._modeBtns = document.querySelectorAll('.mode-btn');
     this._modeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         this._modeBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const mode = btn.dataset.mode;
-        this._toggleArpSection(mode === 'arp');
-        this._callbacks.onPlayModeChange(mode);
+        this._toggleArpPopup(mode === 'arp');
+        this._cb.onPlayModeChange(mode);
       });
     });
   }
 
   setPlayMode(mode) {
-    this._modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-    this._toggleArpSection(mode === 'arp');
+    if (this._modeBtns) {
+      this._modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    }
+    this._toggleArpPopup(mode === 'arp');
   }
 
-  _toggleArpSection(enabled) {
-    if (this._arpSection) {
-      this._arpSection.classList.toggle('disabled', !enabled);
+  _toggleArpPopup(open) {
+    if (this._arpPopup) {
+      this._arpPopup.classList.toggle('open', open);
     }
   }
 
   /* --- arpeggiator controls --- */
 
   _bindArpControls() {
-    // BPM slider
     const bpmSlider = document.getElementById('arp-bpm');
     const bpmValue = document.getElementById('arp-bpm-value');
     if (bpmSlider) {
       bpmSlider.addEventListener('input', () => {
         const v = parseInt(bpmSlider.value);
         bpmValue.textContent = v;
-        this._callbacks.onArpBPMChange(v);
+        this._cb.onArpBPMChange(v);
       });
     }
 
-    // Division buttons
     document.querySelectorAll('.arp-div-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.arp-div-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        this._callbacks.onArpDivisionChange(btn.dataset.div);
+        this._cb.onArpDivisionChange(btn.dataset.div);
       });
     });
 
-    // Mode buttons (up/down/random)
     document.querySelectorAll('.arp-mode-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.arp-mode-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        this._callbacks.onArpModeChange(btn.dataset.arpmode);
+        this._cb.onArpModeChange(btn.dataset.arpmode);
       });
     });
   }
@@ -195,12 +395,10 @@ export class UIManager {
     const container = document.getElementById('piano');
     if (!container) return;
 
-    // Collect and sort all mapped MIDI notes
     const entries = Object.entries(KEY_TO_MIDI)
       .map(([key, midi]) => ({ key, midi, name: midiToName(midi) }))
       .sort((a, b) => a.midi - b.midi);
 
-    // Remove duplicates (same midi from different keys — shouldn't happen but safety)
     const seen = new Set();
     const unique = entries.filter(e => {
       if (seen.has(e.midi)) return false;
@@ -226,11 +424,11 @@ export class UIManager {
       const midi = parseInt(el.dataset.midi);
       this._activeTouchMidi = midi;
       const name = midiToName(midi);
-      this._callbacks.onNoteOn(midiToFreq(midi), midi, name);
+      this._cb.onNoteOn(midiToFreq(midi), midi, name);
     };
     const triggerOff = () => {
       if (this._activeTouchMidi == null) return;
-      this._callbacks.onNoteOff(this._activeTouchMidi);
+      this._cb.onNoteOff(this._activeTouchMidi);
       this._activeTouchMidi = null;
     };
 

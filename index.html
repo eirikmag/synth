@@ -7,6 +7,37 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <!-- ===== ARP POPUP (hidden, appears above synth) ===== -->
+  <div class="arp-popup" id="arp-popup">
+    <div class="arp-popup-inner">
+      <div class="section-label">ARPEGGIATOR</div>
+      <div class="arp-controls">
+        <div class="knob-group">
+          <label>BPM</label>
+          <input type="range" id="arp-bpm" class="knob-slider" min="20" max="300" step="1" value="120" />
+          <span class="knob-value" id="arp-bpm-value">120</span>
+        </div>
+        <div class="knob-group">
+          <label>Division</label>
+          <div class="arp-div-selector">
+            <button class="arp-div-btn" data-div="1/4">1/4</button>
+            <button class="arp-div-btn active" data-div="1/8">1/8</button>
+            <button class="arp-div-btn" data-div="1/16">1/16</button>
+            <button class="arp-div-btn" data-div="1/32">1/32</button>
+          </div>
+        </div>
+        <div class="knob-group">
+          <label>Pattern</label>
+          <div class="arp-mode-selector">
+            <button class="arp-mode-btn active" data-arpmode="up">UP</button>
+            <button class="arp-mode-btn" data-arpmode="down">DN</button>
+            <button class="arp-mode-btn" data-arpmode="random">RND</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="synth">
 
     <!-- ===== TOP PANEL (control surface) ===== -->
@@ -21,39 +52,125 @@
       <!-- Control sections -->
       <div class="panel-sections">
 
-        <!-- OSCILLATOR -->
-        <div class="section">
-          <div class="section-label">OSCILLATOR</div>
-          <div class="section-body">
-            <div class="knob-group">
-              <label>Type</label>
-              <div class="waveform-selector">
-                <button class="waveform-btn active" data-waveform="sawtooth">SAW</button>
-                <button class="waveform-btn" data-waveform="square">SQR</button>
-                <button class="waveform-btn" data-waveform="sine">SIN</button>
-                <button class="waveform-btn" data-waveform="triangle">TRI</button>
+        <!-- OSCILLATORS (stacked vertically) -->
+        <div class="osc-stack">
+
+          <!-- OSCILLATOR 1 -->
+          <div class="section osc-section">
+            <div class="section-label">OSC 1</div>
+            <div class="section-body">
+              <div class="knob-group">
+                <label>Type</label>
+                <div class="waveform-selector">
+                  <button class="waveform-btn active" data-osc="1" data-waveform="sawtooth">SAW</button>
+                  <button class="waveform-btn" data-osc="1" data-waveform="square">SQR</button>
+                  <button class="waveform-btn" data-osc="1" data-waveform="sine">SIN</button>
+                  <button class="waveform-btn" data-osc="1" data-waveform="triangle">TRI</button>
+                </div>
               </div>
-            </div>
-            <div class="knob-group">
-              <label>Volume</label>
-              <input type="range" id="volume" class="knob-slider" min="0" max="1" step="0.01" value="0.5" />
-              <span class="knob-value" id="volume-value">50%</span>
-            </div>
-            <div class="knob-group">
-              <label>Mode</label>
-              <div class="mode-selector">
-                <button class="mode-btn active" data-mode="mono">MONO</button>
-                <button class="mode-btn" data-mode="poly">POLY</button>
-                <button class="mode-btn" data-mode="arp">ARP</button>
+              <div class="knob-group">
+                <label>Vol</label>
+                <input type="range" id="osc1-volume" class="adsr-slider" min="0" max="1" step="0.01" value="0.5" />
+                <span class="knob-value" id="osc1-volume-value">50%</span>
+              </div>
+              <div class="knob-group">
+                <label>Shape</label>
+                <input type="range" id="osc1-shape" class="adsr-slider" min="0" max="1" step="0.01" value="0" />
+                <span class="knob-value" id="osc1-shape-value">0%</span>
+              </div>
+              <div class="knob-group">
+                <label>Pitch</label>
+                <input type="range" id="osc1-pitch" class="adsr-slider" min="-7" max="7" step="0.01" value="0" />
+                <span class="knob-value" id="osc1-pitch-value">0.00 st</span>
+              </div>
+              <div class="knob-group">
+                <label>Oct</label>
+                <input type="range" id="osc1-octave" class="adsr-slider" min="-3" max="3" step="1" value="0" />
+                <span class="knob-value" id="osc1-octave-value">0</span>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- FILTER (blank placeholder) -->
-        <div class="section blank">
+          <!-- OSCILLATOR 2 -->
+          <div class="section osc-section">
+            <div class="section-label">OSC 2</div>
+            <div class="section-body">
+              <div class="knob-group">
+                <label>Type</label>
+                <div class="waveform-selector">
+                  <button class="waveform-btn" data-osc="2" data-waveform="sawtooth">SAW</button>
+                  <button class="waveform-btn active" data-osc="2" data-waveform="square">SQR</button>
+                  <button class="waveform-btn" data-osc="2" data-waveform="sine">SIN</button>
+                  <button class="waveform-btn" data-osc="2" data-waveform="triangle">TRI</button>
+                </div>
+              </div>
+              <div class="knob-group">
+                <label>Vol</label>
+                <input type="range" id="osc2-volume" class="adsr-slider" min="0" max="1" step="0.01" value="0" />
+                <span class="knob-value" id="osc2-volume-value">0%</span>
+              </div>
+              <div class="knob-group">
+                <label>Shape</label>
+                <input type="range" id="osc2-shape" class="adsr-slider" min="0" max="1" step="0.01" value="0" />
+                <span class="knob-value" id="osc2-shape-value">0%</span>
+              </div>
+              <div class="knob-group">
+                <label>Pitch</label>
+                <input type="range" id="osc2-pitch" class="adsr-slider" min="-7" max="7" step="0.01" value="0" />
+                <span class="knob-value" id="osc2-pitch-value">0.00 st</span>
+              </div>
+              <div class="knob-group">
+                <label>Oct</label>
+                <input type="range" id="osc2-octave" class="adsr-slider" min="-3" max="3" step="1" value="0" />
+                <span class="knob-value" id="osc2-octave-value">0</span>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /osc-stack -->
+
+        <!-- FILTER -->
+        <div class="section">
           <div class="section-label">FILTER</div>
-          <div class="section-body blank-body"></div>
+          <div class="section-body filter-body">
+            <div class="knob-group">
+              <label>Type</label>
+              <div class="filter-type-selector">
+                <button class="filter-type-btn active" data-ftype="lowpass">LP</button>
+                <button class="filter-type-btn" data-ftype="highpass">HP</button>
+                <button class="filter-type-btn" data-ftype="bandpass">BP</button>
+                <button class="filter-type-btn" data-ftype="notch">NCH</button>
+                <button class="filter-type-btn" data-ftype="lowshelf">LS</button>
+                <button class="filter-type-btn" data-ftype="highshelf">HS</button>
+              </div>
+            </div>
+            <div class="knob-group" id="filter-model-group">
+              <label>Model</label>
+              <div class="filter-model-selector">
+                <button class="filter-model-btn active" data-model="svf12">SVF12</button>
+                <button class="filter-model-btn" data-model="svf24">SVF24</button>
+                <button class="filter-model-btn" data-model="rd3">RD3</button>
+                <button class="filter-model-btn" data-model="mg">MG</button>
+                <button class="filter-model-btn" data-model="ob12">OB12</button>
+                <button class="filter-model-btn" data-model="ob24">OB24</button>
+              </div>
+            </div>
+            <div class="filter-slider-row">
+              <label>Cutoff</label>
+              <input type="range" id="filter-cutoff" class="knob-slider filter-knob" min="0" max="1000" step="1" value="1000" />
+              <span class="knob-value" id="filter-cutoff-value">20.0k</span>
+            </div>
+            <div class="filter-slider-row" id="filter-q-group">
+              <label>Reso</label>
+              <input type="range" id="filter-q" class="knob-slider filter-knob" min="0.01" max="30" step="0.01" value="0.5" />
+              <span class="knob-value" id="filter-q-value">0.50</span>
+            </div>
+            <div class="filter-slider-row hidden" id="filter-gain-group">
+              <label>Gain</label>
+              <input type="range" id="filter-gain" class="knob-slider filter-knob" min="-24" max="24" step="0.1" value="0" />
+              <span class="knob-value" id="filter-gain-value">+0.0 dB</span>
+            </div>
+          </div>
         </div>
 
         <!-- DISPLAY (center OLED) -->
@@ -91,31 +208,14 @@
           </div>
         </div>
 
-        <!-- ARPEGGIATOR -->
-        <div class="section" id="arp-section">
-          <div class="section-label">ARPEGGIATOR</div>
-          <div class="section-body arp-body">
-            <div class="knob-group">
-              <label>BPM</label>
-              <input type="range" id="arp-bpm" class="knob-slider" min="20" max="300" step="1" value="120" />
-              <span class="knob-value" id="arp-bpm-value">120</span>
-            </div>
-            <div class="knob-group">
-              <label>Division</label>
-              <div class="arp-div-selector">
-                <button class="arp-div-btn" data-div="1/4">1/4</button>
-                <button class="arp-div-btn active" data-div="1/8">1/8</button>
-                <button class="arp-div-btn" data-div="1/16">1/16</button>
-                <button class="arp-div-btn" data-div="1/32">1/32</button>
-              </div>
-            </div>
-            <div class="knob-group">
-              <label>Pattern</label>
-              <div class="arp-mode-selector">
-                <button class="arp-mode-btn active" data-arpmode="up">UP</button>
-                <button class="arp-mode-btn" data-arpmode="down">DN</button>
-                <button class="arp-mode-btn" data-arpmode="random">RND</button>
-              </div>
+        <!-- MODE -->
+        <div class="section">
+          <div class="section-label">MODE</div>
+          <div class="section-body mode-body">
+            <div class="mode-selector">
+              <button class="mode-btn active" data-mode="mono">MONO</button>
+              <button class="mode-btn" data-mode="poly">POLY</button>
+              <button class="mode-btn" data-mode="arp">ARP</button>
             </div>
           </div>
         </div>

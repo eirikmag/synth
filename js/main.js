@@ -19,7 +19,7 @@ const monoHeld = [];
 function ensureVisualizer() {
   if (visualizer) return;
   const canvas = document.getElementById('oscilloscope');
-  visualizer = new Visualizer(canvas, audio.analyser);
+  visualizer = new Visualizer(canvas, audio.analyser, audio.getRefFilters());
   visualizer.start();
 }
 
@@ -108,8 +108,22 @@ function setPlayMode(mode) {
 /* --- UI --- */
 
 const ui = new UIManager({
-  onWaveformChange(type) { audio.setWaveform(type); },
-  onVolumeChange(value) { audio.setVolume(value); },
+  onWaveformChange(oscNum, type) { audio.setWaveform(oscNum, type); },
+  onVolumeChange(oscNum, value) { audio.setVolume(oscNum, value); },
+  onShapeChange(oscNum, value) { audio.setShape(oscNum, value); },
+  onPitchChange(oscNum, value) { audio.setPitch(oscNum, value); },
+  onOctaveChange(oscNum, value) { audio.setOctave(oscNum, value); },
+  onFilterTypeChange(type) {
+    audio.setFilterType(type);
+    if (visualizer) visualizer.setRefFilters(audio.getRefFilters());
+  },
+  onFilterModelChange(model) {
+    audio.setFilterModel(model);
+    if (visualizer) visualizer.setRefFilters(audio.getRefFilters());
+  },
+  onFilterCutoffChange(freq) { audio.setFilterCutoff(freq); },
+  onFilterQChange(value) { audio.setFilterQ(value); },
+  onFilterGainChange(dB) { audio.setFilterGain(dB); },
   onADSRChange(params) { audio.setADSR(params); },
   onPlayModeChange(mode) { setPlayMode(mode); },
   onArpBPMChange(bpm) { arp.setBPM(bpm); },
@@ -124,10 +138,56 @@ const keyboard = new KeyboardManager({
   onNoteOff: noteOff,
 });
 
+/* --- Web MIDI input --- */
+
+function initMIDI() {
+  if (!navigator.requestMIDIAccess) {
+    console.warn('Web MIDI API not supported in this browser.');
+    return;
+  }
+  navigator.requestMIDIAccess().then(access => {
+    const connectInputs = () => {
+      for (const input of access.inputs.values()) {
+        input.onmidimessage = handleMIDIMessage;
+      }
+    };
+    connectInputs();
+    access.onstatechange = connectInputs;
+    console.log(`MIDI: ${access.inputs.size} input(s) connected.`);
+  }).catch(err => console.warn('MIDI access denied:', err));
+}
+
+function handleMIDIMessage(e) {
+  const [status, note, velocity] = e.data;
+  const cmd = status & 0xf0;
+
+  if (cmd === 0x90 && velocity > 0) {
+    // Note On
+    noteOn(midiToFreq(note), note, midiToName(note));
+  } else if (cmd === 0x80 || (cmd === 0x90 && velocity === 0)) {
+    // Note Off
+    noteOff(note);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   ui.init();
-  ui.setActiveWaveform(audio.getWaveform());
-  ui.setVolume(audio.getVolume());
+  initMIDI();
+  ui.setActiveWaveform(1, audio.getWaveform(1));
+  ui.setActiveWaveform(2, audio.getWaveform(2));
+  ui.setVolume(1, audio.getVolume(1));
+  ui.setVolume(2, audio.getVolume(2));
+  ui.setShape(1, audio.getShape(1));
+  ui.setShape(2, audio.getShape(2));
+  ui.setPitch(1, audio.getPitch(1));
+  ui.setPitch(2, audio.getPitch(2));
+  ui.setOctave(1, audio.getOctave(1));
+  ui.setOctave(2, audio.getOctave(2));
+  ui.setFilterType(audio.getFilterType());
+  ui.setFilterModel(audio.getFilterModel());
+  ui.setFilterCutoff(audio.getFilterCutoff());
+  ui.setFilterQ(audio.getFilterQ());
+  ui.setFilterGain(audio.getFilterGain());
   ui.setADSR(audio.getADSR());
   ui.setPlayMode(playMode);
   ui.setArpSettings({ bpm: arp.getBPM(), division: arp.getDivision(), mode: arp.getMode() });
