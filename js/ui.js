@@ -31,6 +31,7 @@ export class UIManager {
     this._bindPlayMode();
     this._bindArpControls();
     this._bindEffects();
+    this._bindLFO();
     this._buildPianoVisual();
   }
 
@@ -556,6 +557,174 @@ export class UIManager {
     const s = document.getElementById('reverb-mix');
     const d = document.getElementById('reverb-mix-value');
     if (s) { s.value = value; d.textContent = Math.round(value) + '%'; }
+  }
+
+  /* --- LFO controls + drag routing --- */
+
+  _bindLFO() {
+    // Waveform buttons
+    const waveBtns = document.querySelectorAll('.lfo-wave-btn');
+    waveBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        waveBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this._cb.onLFOWaveformChange(btn.dataset.lfowave);
+      });
+    });
+
+    // Rate slider
+    const rateSlider = document.getElementById('lfo-rate');
+    const rateVal = document.getElementById('lfo-rate-value');
+    if (rateSlider) {
+      rateSlider.addEventListener('input', () => {
+        const v = parseFloat(rateSlider.value);
+        rateVal.textContent = v.toFixed(1) + ' Hz';
+        this._cb.onLFORateChange(v);
+      });
+    }
+
+    // Drag routing
+    this._initDragRouting();
+
+    // Route list event delegation
+    const routeList = document.getElementById('lfo-route-list');
+    if (routeList) {
+      routeList.addEventListener('input', (e) => {
+        if (e.target.classList.contains('lfo-route-amount')) {
+          const item = e.target.closest('.lfo-route-item');
+          const targetId = item.dataset.target;
+          const amount = parseFloat(e.target.value);
+          item.querySelector('.lfo-route-amount-val').textContent = amount + '%';
+          this._cb.onLFORouteAmountChange(targetId, amount);
+        }
+      });
+      routeList.addEventListener('click', (e) => {
+        if (e.target.classList.contains('lfo-route-remove')) {
+          const item = e.target.closest('.lfo-route-item');
+          this._cb.onLFORouteRemove(item.dataset.target);
+        }
+      });
+    }
+  }
+
+  _initDragRouting() {
+    const pin = document.getElementById('lfo-route-pin');
+    const overlay = document.getElementById('lfo-drag-overlay');
+    const line = document.getElementById('lfo-drag-line');
+    if (!pin || !overlay || !line) return;
+
+    let dragging = false;
+    let pinRect;
+
+    const startDrag = (clientX, clientY) => {
+      dragging = true;
+      pinRect = pin.getBoundingClientRect();
+      overlay.classList.add('active');
+      document.querySelectorAll('[data-route-target]').forEach(el => {
+        el.classList.add('lfo-drop-target');
+      });
+    };
+
+    const moveDrag = (clientX, clientY) => {
+      if (!dragging) return;
+      const sx = pinRect.left + pinRect.width / 2;
+      const sy = pinRect.top + pinRect.height / 2;
+      line.setAttribute('x1', sx);
+      line.setAttribute('y1', sy);
+      line.setAttribute('x2', clientX);
+      line.setAttribute('y2', clientY);
+    };
+
+    const endDrag = (clientX, clientY) => {
+      if (!dragging) return;
+      dragging = false;
+      overlay.classList.remove('active');
+      document.querySelectorAll('[data-route-target]').forEach(el => {
+        el.classList.remove('lfo-drop-target');
+      });
+      line.setAttribute('x1', 0);
+      line.setAttribute('y1', 0);
+      line.setAttribute('x2', 0);
+      line.setAttribute('y2', 0);
+
+      // Find target under cursor
+      const el = document.elementFromPoint(clientX, clientY);
+      const routeEl = el ? el.closest('[data-route-target]') : null;
+      if (routeEl) {
+        this._cb.onLFORouteAdd(routeEl.dataset.routeTarget);
+      }
+    };
+
+    // Mouse events
+    pin.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startDrag(e.clientX, e.clientY);
+    });
+    document.addEventListener('mousemove', (e) => {
+      moveDrag(e.clientX, e.clientY);
+    });
+    document.addEventListener('mouseup', (e) => {
+      endDrag(e.clientX, e.clientY);
+    });
+
+    // Touch events
+    pin.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      startDrag(t.clientX, t.clientY);
+    }, { passive: false });
+    document.addEventListener('touchmove', (e) => {
+      if (!dragging) return;
+      const t = e.touches[0];
+      moveDrag(t.clientX, t.clientY);
+    });
+    document.addEventListener('touchend', (e) => {
+      if (!dragging) return;
+      const t = e.changedTouches[0];
+      endDrag(t.clientX, t.clientY);
+    });
+  }
+
+  setLFOWaveform(type) {
+    document.querySelectorAll('.lfo-wave-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.lfowave === type));
+  }
+
+  setLFORate(value) {
+    const s = document.getElementById('lfo-rate');
+    const d = document.getElementById('lfo-rate-value');
+    if (s) { s.value = value; d.textContent = parseFloat(value).toFixed(1) + ' Hz'; }
+  }
+
+  /** Rebuild the route list UI from route data. */
+  renderLFORoutes(routes, targets) {
+    const list = document.getElementById('lfo-route-list');
+    if (!list) return;
+    list.innerHTML = '';
+    for (const route of routes) {
+      const target = targets[route.targetId];
+      if (!target) continue;
+      const item = document.createElement('div');
+      item.className = 'lfo-route-item';
+      item.dataset.target = route.targetId;
+      item.innerHTML =
+        '<span class="lfo-route-name">' + target.label + '</span>' +
+        '<input type="range" class="lfo-route-amount" min="-100" max="100" value="' + route.amount + '" />' +
+        '<span class="lfo-route-amount-val">' + route.amount + '%</span>' +
+        '<button class="lfo-route-remove">x</button>';
+      list.appendChild(item);
+    }
+  }
+
+  /** Update the visual route indicators on target parameter elements. */
+  updateLFORouteIndicators(routes) {
+    document.querySelectorAll('[data-route-target].lfo-routed').forEach(el => {
+      el.classList.remove('lfo-routed');
+    });
+    for (const route of routes) {
+      const el = document.querySelector('[data-route-target="' + route.targetId + '"]');
+      if (el) el.classList.add('lfo-routed');
+    }
   }
 
   /* --- note display --- */

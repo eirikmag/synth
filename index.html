@@ -93,6 +93,10 @@
   </div>
 
   <div class="synth">
+    <!-- SVG overlay for LFO drag routing -->
+    <svg class="lfo-drag-overlay" id="lfo-drag-overlay">
+      <line id="lfo-drag-line" x1="0" y1="0" x2="0" y2="0" />
+    </svg>
 
     <!-- ===== TOP PANEL (control surface) ===== -->
     <div class="panel">
@@ -123,17 +127,17 @@
                   <button class="waveform-btn" data-osc="1" data-waveform="triangle">TRI</button>
                 </div>
               </div>
-              <div class="knob-group">
+              <div class="knob-group" data-route-target="osc1-volume">
                 <label>Vol</label>
                 <input type="range" id="osc1-volume" class="adsr-slider" min="0" max="1" step="0.01" value="0.5" />
                 <span class="knob-value" id="osc1-volume-value">50%</span>
               </div>
-              <div class="knob-group">
+              <div class="knob-group" data-route-target="osc1-shape">
                 <label>Shape</label>
                 <input type="range" id="osc1-shape" class="adsr-slider" min="0" max="1" step="0.01" value="0" />
                 <span class="knob-value" id="osc1-shape-value">0%</span>
               </div>
-              <div class="knob-group">
+              <div class="knob-group" data-route-target="osc1-pitch">
                 <label>Pitch</label>
                 <input type="range" id="osc1-pitch" class="adsr-slider" min="-7" max="7" step="0.01" value="0" />
                 <span class="knob-value" id="osc1-pitch-value">0.00 st</span>
@@ -159,17 +163,17 @@
                   <button class="waveform-btn" data-osc="2" data-waveform="triangle">TRI</button>
                 </div>
               </div>
-              <div class="knob-group">
+              <div class="knob-group" data-route-target="osc2-volume">
                 <label>Vol</label>
                 <input type="range" id="osc2-volume" class="adsr-slider" min="0" max="1" step="0.01" value="0" />
                 <span class="knob-value" id="osc2-volume-value">0%</span>
               </div>
-              <div class="knob-group">
+              <div class="knob-group" data-route-target="osc2-shape">
                 <label>Shape</label>
                 <input type="range" id="osc2-shape" class="adsr-slider" min="0" max="1" step="0.01" value="0" />
                 <span class="knob-value" id="osc2-shape-value">0%</span>
               </div>
-              <div class="knob-group">
+              <div class="knob-group" data-route-target="osc2-pitch">
                 <label>Pitch</label>
                 <input type="range" id="osc2-pitch" class="adsr-slider" min="-7" max="7" step="0.01" value="0" />
                 <span class="knob-value" id="osc2-pitch-value">0.00 st</span>
@@ -210,17 +214,17 @@
                 <button class="filter-model-btn" data-model="ob24">OB24</button>
               </div>
             </div>
-            <div class="filter-slider-row">
+            <div class="filter-slider-row" data-route-target="filter-cutoff">
               <label>Cutoff</label>
               <input type="range" id="filter-cutoff" class="knob-slider filter-knob" min="0" max="1000" step="1" value="1000" />
               <span class="knob-value" id="filter-cutoff-value">20.0k</span>
             </div>
-            <div class="filter-slider-row" id="filter-q-group">
+            <div class="filter-slider-row" id="filter-q-group" data-route-target="filter-q">
               <label>Reso</label>
               <input type="range" id="filter-q" class="knob-slider filter-knob" min="0.01" max="30" step="0.01" value="0.5" />
               <span class="knob-value" id="filter-q-value">0.50</span>
             </div>
-            <div class="filter-slider-row hidden" id="filter-gain-group">
+            <div class="filter-slider-row hidden" id="filter-gain-group" data-route-target="filter-gain">
               <label>Gain</label>
               <input type="range" id="filter-gain" class="knob-slider filter-knob" min="-24" max="24" step="0.1" value="0" />
               <span class="knob-value" id="filter-gain-value">+0.0 dB</span>
@@ -236,32 +240,62 @@
           </div>
         </div>
 
-        <!-- ENVELOPE -->
-        <div class="section">
-          <div class="section-label">ENVELOPE</div>
-          <div class="section-body adsr-row">
-            <div class="adsr-knob">
-              <label>A</label>
-              <input type="range" class="adsr-slider" id="attack" min="0.001" max="2" step="0.001" value="0.01" />
-              <span class="knob-value" id="attack-value">10ms</span>
-            </div>
-            <div class="adsr-knob">
-              <label>D</label>
-              <input type="range" class="adsr-slider" id="decay" min="0.001" max="2" step="0.001" value="0.1" />
-              <span class="knob-value" id="decay-value">100ms</span>
-            </div>
-            <div class="adsr-knob">
-              <label>S</label>
-              <input type="range" class="adsr-slider" id="sustain" min="0" max="1" step="0.01" value="0.7" />
-              <span class="knob-value" id="sustain-value">70%</span>
-            </div>
-            <div class="adsr-knob">
-              <label>R</label>
-              <input type="range" class="adsr-slider" id="release" min="0.001" max="3" step="0.001" value="0.3" />
-              <span class="knob-value" id="release-value">300ms</span>
+        <!-- ENVELOPE + LFO (stacked) -->
+        <div class="env-lfo-stack">
+
+          <!-- ENVELOPE -->
+          <div class="section">
+            <div class="section-label">ENVELOPE</div>
+            <div class="section-body adsr-row">
+              <div class="adsr-knob">
+                <label>A</label>
+                <input type="range" class="adsr-slider" id="attack" min="0.001" max="2" step="0.001" value="0.01" />
+                <span class="knob-value" id="attack-value">10ms</span>
+              </div>
+              <div class="adsr-knob">
+                <label>D</label>
+                <input type="range" class="adsr-slider" id="decay" min="0.001" max="2" step="0.001" value="0.1" />
+                <span class="knob-value" id="decay-value">100ms</span>
+              </div>
+              <div class="adsr-knob">
+                <label>S</label>
+                <input type="range" class="adsr-slider" id="sustain" min="0" max="1" step="0.01" value="0.7" />
+                <span class="knob-value" id="sustain-value">70%</span>
+              </div>
+              <div class="adsr-knob">
+                <label>R</label>
+                <input type="range" class="adsr-slider" id="release" min="0.001" max="3" step="0.001" value="0.3" />
+                <span class="knob-value" id="release-value">300ms</span>
+              </div>
             </div>
           </div>
-        </div>
+
+          <!-- LFO -->
+          <div class="section lfo-section">
+            <div class="section-label">LFO</div>
+            <div class="section-body lfo-body">
+              <div class="lfo-controls">
+                <div class="lfo-wave-selector">
+                  <button class="lfo-wave-btn active" data-lfowave="sine">SIN</button>
+                  <button class="lfo-wave-btn" data-lfowave="triangle">TRI</button>
+                  <button class="lfo-wave-btn" data-lfowave="square">SQR</button>
+                  <button class="lfo-wave-btn" data-lfowave="sawtooth">SAW</button>
+                  <button class="lfo-wave-btn" data-lfowave="snh">S&amp;H</button>
+                </div>
+                <div class="lfo-rate-row">
+                  <label>Rate</label>
+                  <input type="range" id="lfo-rate" class="knob-slider" min="0.05" max="20" step="0.05" value="1" />
+                  <span class="knob-value" id="lfo-rate-value">1.0 Hz</span>
+                </div>
+              </div>
+              <div class="lfo-routing">
+                <div class="lfo-route-pin" id="lfo-route-pin" title="Drag to a parameter to route LFO"></div>
+                <div class="lfo-route-list" id="lfo-route-list"></div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /env-lfo-stack -->
 
         <!-- MODE -->
         <div class="section">

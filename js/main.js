@@ -8,8 +8,10 @@ import { KeyboardManager, midiToFreq, midiToName } from './keyboard.js';
 import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
 import { Arpeggiator } from './arpeggiator.js';
+import { LFO } from './lfo.js';
 
 const audio = new AudioEngine();
+const lfo = new LFO();
 let visualizer = null;
 let playMode = 'mono'; // 'mono' | 'poly' | 'arp'
 
@@ -109,9 +111,18 @@ function setPlayMode(mode) {
 
 const ui = new UIManager({
   onWaveformChange(oscNum, type) { audio.setWaveform(oscNum, type); },
-  onVolumeChange(oscNum, value) { audio.setVolume(oscNum, value); },
-  onShapeChange(oscNum, value) { audio.setShape(oscNum, value); },
-  onPitchChange(oscNum, value) { audio.setPitch(oscNum, value); },
+  onVolumeChange(oscNum, value) {
+    audio.setVolume(oscNum, value);
+    lfo.updateBase('osc' + oscNum + '-volume', value);
+  },
+  onShapeChange(oscNum, value) {
+    audio.setShape(oscNum, value);
+    lfo.updateBase('osc' + oscNum + '-shape', value);
+  },
+  onPitchChange(oscNum, value) {
+    audio.setPitch(oscNum, value);
+    lfo.updateBase('osc' + oscNum + '-pitch', value);
+  },
   onOctaveChange(oscNum, value) { audio.setOctave(oscNum, value); },
   onFilterTypeChange(type) {
     audio.setFilterType(type);
@@ -121,9 +132,18 @@ const ui = new UIManager({
     audio.setFilterModel(model);
     if (visualizer) visualizer.setRefFilters(audio.getRefFilters());
   },
-  onFilterCutoffChange(freq) { audio.setFilterCutoff(freq); },
-  onFilterQChange(value) { audio.setFilterQ(value); },
-  onFilterGainChange(dB) { audio.setFilterGain(dB); },
+  onFilterCutoffChange(freq) {
+    audio.setFilterCutoff(freq);
+    lfo.updateBase('filter-cutoff', freq);
+  },
+  onFilterQChange(value) {
+    audio.setFilterQ(value);
+    lfo.updateBase('filter-q', value);
+  },
+  onFilterGainChange(dB) {
+    audio.setFilterGain(dB);
+    lfo.updateBase('filter-gain', dB);
+  },
   onADSRChange(params) { audio.setADSR(params); },
   onPlayModeChange(mode) { setPlayMode(mode); },
   onArpBPMChange(bpm) { arp.setBPM(bpm); },
@@ -138,6 +158,11 @@ const ui = new UIManager({
   onReverbEnabledChange(on) { audio.setReverbEnabled(on); },
   onReverbDecayChange(seconds) { audio.setReverbDecay(seconds); },
   onReverbMixChange(pct) { audio.setReverbMix(pct); },
+  onLFOWaveformChange(type) { lfo.setWaveform(type); },
+  onLFORateChange(hz) { lfo.setRate(hz); },
+  onLFORouteAdd(targetId) { lfo.addRoute(targetId); },
+  onLFORouteRemove(targetId) { lfo.removeRoute(targetId); },
+  onLFORouteAmountChange(targetId, amount) { lfo.setRouteAmount(targetId, amount); },
   onNoteOn: noteOn,
   onNoteOff: noteOff,
 });
@@ -182,6 +207,63 @@ function handleMIDIMessage(e) {
 document.addEventListener('DOMContentLoaded', () => {
   ui.init();
   initMIDI();
+
+  // Register LFO modulation targets
+  lfo.setTargets({
+    'osc1-volume': {
+      label: 'O1 Vol', min: 0, max: 1,
+      get: () => audio.getVolume(1),
+      set: (v) => audio.setVolume(1, v),
+    },
+    'osc1-shape': {
+      label: 'O1 Shp', min: 0, max: 1,
+      get: () => audio.getShape(1),
+      set: (v) => audio.setShape(1, v),
+    },
+    'osc1-pitch': {
+      label: 'O1 Pit', min: -7, max: 7,
+      get: () => audio.getPitch(1),
+      set: (v) => audio.setPitch(1, v),
+    },
+    'osc2-volume': {
+      label: 'O2 Vol', min: 0, max: 1,
+      get: () => audio.getVolume(2),
+      set: (v) => audio.setVolume(2, v),
+    },
+    'osc2-shape': {
+      label: 'O2 Shp', min: 0, max: 1,
+      get: () => audio.getShape(2),
+      set: (v) => audio.setShape(2, v),
+    },
+    'osc2-pitch': {
+      label: 'O2 Pit', min: -7, max: 7,
+      get: () => audio.getPitch(2),
+      set: (v) => audio.setPitch(2, v),
+    },
+    'filter-cutoff': {
+      label: 'Cutoff', min: 20, max: 20000, log: true,
+      get: () => audio.getFilterCutoff(),
+      set: (v) => audio.setFilterCutoff(v),
+    },
+    'filter-q': {
+      label: 'Reso', min: 0.01, max: 30,
+      get: () => audio.getFilterQ(),
+      set: (v) => audio.setFilterQ(v),
+    },
+    'filter-gain': {
+      label: 'Flt Gain', min: -24, max: 24,
+      get: () => audio.getFilterGain(),
+      set: (v) => audio.setFilterGain(v),
+    },
+  });
+
+  lfo.setOnRoutesChange(() => {
+    const routes = lfo.getRoutes();
+    const targets = lfo.getTargets();
+    ui.renderLFORoutes(routes, targets);
+    ui.updateLFORouteIndicators(routes);
+  });
+
   ui.setActiveWaveform(1, audio.getWaveform(1));
   ui.setActiveWaveform(2, audio.getWaveform(2));
   ui.setVolume(1, audio.getVolume(1));
@@ -209,5 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.setReverbEnabled(audio.getReverbEnabled());
   ui.setReverbDecay(audio.getReverbDecay());
   ui.setReverbMix(audio.getReverbMix());
+  ui.setLFOWaveform(lfo.getWaveform());
+  ui.setLFORate(lfo.getRate());
   keyboard.start();
 });

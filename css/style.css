@@ -111,6 +111,19 @@ body {
   min-height: auto;
 }
 
+/* Vertical envelope + LFO stack */
+.env-lfo-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.env-lfo-stack .section {
+  flex: 1;
+  min-height: auto;
+}
+
 .section {
   flex: 1;
   background: rgba(255,255,255,.015);
@@ -561,4 +574,213 @@ body {
 .note-label {
   font-size: .5rem;
   opacity: .4;
+}
+
+/* ===== LFO section ===== */
+.lfo-body {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lfo-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lfo-wave-selector {
+  display: flex;
+  gap: 3px;
+}
+
+.lfo-wave-btn {
+  padding: 4px 5px;
+  border: 1px solid #2a2a3a;
+  border-radius: 3px;
+  background: #0e0e18;
+  color: #777;
+  font-size: .5rem;
+  font-weight: 600;
+  letter-spacing: .5px;
+  cursor: pointer;
+  transition: all .1s;
+  flex: 1;
+  text-align: center;
+}
+.lfo-wave-btn:hover {
+  border-color: #5bc0eb;
+  color: #bbb;
+}
+.lfo-wave-btn.active {
+  background: #5bc0eb;
+  border-color: #5bc0eb;
+  color: #0a0a14;
+}
+
+.lfo-rate-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lfo-rate-row label {
+  font-size: .6rem;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #888;
+  min-width: 28px;
+}
+
+.lfo-rate-row .knob-slider {
+  flex: 1;
+}
+
+/* --- LFO routing --- */
+.lfo-routing {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.lfo-route-pin {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #0e0e18;
+  border: 2px solid #5bc0eb;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+
+.lfo-route-pin::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5bc0eb;
+}
+
+.lfo-route-pin:hover {
+  background: rgba(91, 192, 235, 0.15);
+  box-shadow: 0 0 10px rgba(91, 192, 235, 0.4);
+}
+
+.lfo-route-pin:active {
+  cursor: grabbing;
+}
+
+.lfo-route-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  max-height: 52px;
+  overflow-y: auto;
+}
+
+.lfo-route-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .55rem;
+  color: #999;
+}
+
+.lfo-route-name {
+  min-width: 36px;
+  color: #5bc0eb;
+  font-weight: 600;
+  letter-spacing: .5px;
+}
+
+.lfo-route-amount {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: #2a2a3a;
+  outline: none;
+}
+.lfo-route-amount::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #5bc0eb;
+  border: 1px solid #0e0e18;
+  cursor: pointer;
+}
+
+.lfo-route-amount-val {
+  min-width: 28px;
+  text-align: right;
+  font-family: 'Consolas', monospace;
+  font-size: .5rem;
+  color: #777;
+}
+
+.lfo-route-remove {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: .7rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.lfo-route-remove:hover {
+  color: #eb5b5b;
+}
+
+/* ===== LFO drag overlay ===== */
+.lfo-drag-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  display: none;
+}
+
+.lfo-drag-overlay.active {
+  display: block;
+}
+
+.lfo-drag-overlay line {
+  stroke: #5bc0eb;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  opacity: .7;
+}
+
+/* --- drop target highlights during drag --- */
+[data-route-target].lfo-drop-target {
+  outline: 1px dashed rgba(91, 192, 235, 0.5);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* --- active route indicator --- */
+[data-route-target].lfo-routed {
+  position: relative;
+}
+[data-route-target].lfo-routed::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #5bc0eb;
+  box-shadow: 0 0 4px #5bc0eb;
+  z-index: 1;
 }
