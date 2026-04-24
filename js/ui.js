@@ -28,6 +28,7 @@ export class UIManager {
     this._bindADSR();
     this._bindPlayMode();
     this._bindArpControls();
+    this._bindEffects();
     this._buildPianoVisual();
   }
 
@@ -376,6 +377,133 @@ export class UIManager {
       b.classList.toggle('active', b.dataset.div === division));
     document.querySelectorAll('.arp-mode-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.arpmode === mode));
+  }
+
+  /* --- effects (chorus + reverb) --- */
+
+  _bindEffects() {
+    // Chorus toggle
+    const chorusBtn = document.getElementById('chorus-toggle');
+    const chorusParams = document.getElementById('chorus-params');
+    if (chorusBtn) {
+      chorusBtn.addEventListener('click', () => {
+        const on = !chorusBtn.classList.contains('active');
+        chorusBtn.classList.toggle('active', on);
+        if (chorusParams) chorusParams.classList.toggle('active', on);
+        this._cb.onChorusEnabledChange(on);
+      });
+    }
+
+    // Chorus rate
+    const chorusRate = document.getElementById('chorus-rate');
+    const chorusRateVal = document.getElementById('chorus-rate-value');
+    if (chorusRate) {
+      chorusRate.addEventListener('input', () => {
+        const v = parseFloat(chorusRate.value);
+        chorusRateVal.textContent = v.toFixed(1) + ' Hz';
+        this._cb.onChorusRateChange(v);
+      });
+    }
+
+    // Chorus depth
+    const chorusDepth = document.getElementById('chorus-depth');
+    const chorusDepthVal = document.getElementById('chorus-depth-value');
+    if (chorusDepth) {
+      chorusDepth.addEventListener('input', () => {
+        const v = parseFloat(chorusDepth.value);
+        chorusDepthVal.textContent = Math.round(v) + '%';
+        this._cb.onChorusDepthChange(v);
+      });
+    }
+
+    // Chorus mix
+    const chorusMix = document.getElementById('chorus-mix');
+    const chorusMixVal = document.getElementById('chorus-mix-value');
+    if (chorusMix) {
+      chorusMix.addEventListener('input', () => {
+        const v = parseFloat(chorusMix.value);
+        chorusMixVal.textContent = Math.round(v) + '%';
+        this._cb.onChorusMixChange(v);
+      });
+    }
+
+    // Reverb toggle
+    const reverbBtn = document.getElementById('reverb-toggle');
+    const reverbParams = document.getElementById('reverb-params');
+    if (reverbBtn) {
+      reverbBtn.addEventListener('click', () => {
+        const on = !reverbBtn.classList.contains('active');
+        reverbBtn.classList.toggle('active', on);
+        if (reverbParams) reverbParams.classList.toggle('active', on);
+        this._cb.onReverbEnabledChange(on);
+      });
+    }
+
+    // Reverb decay
+    const reverbDecay = document.getElementById('reverb-decay');
+    const reverbDecayVal = document.getElementById('reverb-decay-value');
+    if (reverbDecay) {
+      reverbDecay.addEventListener('input', () => {
+        const v = parseFloat(reverbDecay.value);
+        reverbDecayVal.textContent = v.toFixed(1) + 's';
+        this._cb.onReverbDecayChange(v);
+      });
+    }
+
+    // Reverb mix
+    const reverbMix = document.getElementById('reverb-mix');
+    const reverbMixVal = document.getElementById('reverb-mix-value');
+    if (reverbMix) {
+      reverbMix.addEventListener('input', () => {
+        const v = parseFloat(reverbMix.value);
+        reverbMixVal.textContent = Math.round(v) + '%';
+        this._cb.onReverbMixChange(v);
+      });
+    }
+  }
+
+  setChorusEnabled(on) {
+    const btn = document.getElementById('chorus-toggle');
+    const params = document.getElementById('chorus-params');
+    if (btn) btn.classList.toggle('active', on);
+    if (params) params.classList.toggle('active', on);
+  }
+
+  setChorusRate(value) {
+    const s = document.getElementById('chorus-rate');
+    const d = document.getElementById('chorus-rate-value');
+    if (s) { s.value = value; d.textContent = parseFloat(value).toFixed(1) + ' Hz'; }
+  }
+
+  setChorusDepth(value) {
+    const s = document.getElementById('chorus-depth');
+    const d = document.getElementById('chorus-depth-value');
+    if (s) { s.value = value; d.textContent = Math.round(value) + '%'; }
+  }
+
+  setChorusMix(value) {
+    const s = document.getElementById('chorus-mix');
+    const d = document.getElementById('chorus-mix-value');
+    if (s) { s.value = value; d.textContent = Math.round(value) + '%'; }
+  }
+
+  setReverbEnabled(on) {
+    const btn = document.getElementById('reverb-toggle');
+    const params = document.getElementById('reverb-params');
+    if (btn) btn.classList.toggle('active', on);
+    if (params) params.classList.toggle('active', on);
+  }
+
+  setReverbDecay(value) {
+    const s = document.getElementById('reverb-decay');
+    const d = document.getElementById('reverb-decay-value');
+    if (s) { s.value = value; d.textContent = parseFloat(value).toFixed(1) + 's'; }
+  }
+
+  setReverbMix(value) {
+    const s = document.getElementById('reverb-mix');
+    const d = document.getElementById('reverb-mix-value');
+    if (s) { s.value = value; d.textContent = Math.round(value) + '%'; }
   }
 
   /* --- note display --- */

@@ -129,6 +129,13 @@ const ui = new UIManager({
   onArpBPMChange(bpm) { arp.setBPM(bpm); },
   onArpDivisionChange(div) { arp.setDivision(div); },
   onArpModeChange(mode) { arp.setMode(mode); },
+  onChorusEnabledChange(on) { audio.setChorusEnabled(on); },
+  onChorusRateChange(hz) { audio.setChorusRate(hz); },
+  onChorusDepthChange(pct) { audio.setChorusDepth(pct); },
+  onChorusMixChange(pct) { audio.setChorusMix(pct); },
+  onReverbEnabledChange(on) { audio.setReverbEnabled(on); },
+  onReverbDecayChange(seconds) { audio.setReverbDecay(seconds); },
+  onReverbMixChange(pct) { audio.setReverbMix(pct); },
   onNoteOn: noteOn,
   onNoteOff: noteOff,
 });
@@ -191,5 +198,12 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.setADSR(audio.getADSR());
   ui.setPlayMode(playMode);
   ui.setArpSettings({ bpm: arp.getBPM(), division: arp.getDivision(), mode: arp.getMode() });
+  ui.setChorusEnabled(audio.getChorusEnabled());
+  ui.setChorusRate(audio.getChorusRate());
+  ui.setChorusDepth(audio.getChorusDepth());
+  ui.setChorusMix(audio.getChorusMix());
+  ui.setReverbEnabled(audio.getReverbEnabled());
+  ui.setReverbDecay(audio.getReverbDecay());
+  ui.setReverbMix(audio.getReverbMix());
   keyboard.start();
 });
