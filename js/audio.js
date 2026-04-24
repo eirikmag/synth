@@ -428,18 +428,19 @@ export class AudioEngine {
 
   /* --- voice management --- */
 
-  noteOn(frequency, midi) {
+  noteOn(frequency, midi, velocity = 1) {
     this._ensureContext();
     if (this._ctx.state === 'suspended') this._ctx.resume();
     if (this._voices.has(midi)) this._killVoice(midi);
 
+    const vel = Math.max(0, Math.min(1, velocity));
     const now = this._ctx.currentTime;
 
-    // Shared envelope
+    // Shared envelope (scaled by velocity)
     const envGain = this._ctx.createGain();
     envGain.gain.setValueAtTime(0, now);
-    envGain.gain.linearRampToValueAtTime(1, now + this._attack);
-    envGain.gain.linearRampToValueAtTime(this._sustain, now + this._attack + this._decay);
+    envGain.gain.linearRampToValueAtTime(vel, now + this._attack);
+    envGain.gain.linearRampToValueAtTime(this._sustain * vel, now + this._attack + this._decay);
 
     // Per-voice filter chain
     const filters = this._makeFilterChain();

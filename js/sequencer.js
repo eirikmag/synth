@@ -87,6 +87,7 @@ export class StepSequencer {
 
     // Recording
     this._recording = false;
+    this._recHeldNotes = new Map(); // midi -> { row, step } for note-length tracking
 
     // Callbacks
     this._onNoteOn = null;
@@ -153,7 +154,7 @@ export class StepSequencer {
 
   /* -- recording -- */
 
-  recordNote(midi) {
+  recordNote(midi, vel = 1) {
     if (!this._playing || this._currentStep < 0) return;
     const r = this._recRow;
     const s = this._currentStep;
@@ -161,7 +162,40 @@ export class StepSequencer {
     if (!row) return;
     row.notes[s] = Math.max(0, Math.min(127, midi));
     row.gates[s] = 1;
+    row.vels[s] = Math.max(0, Math.min(1, vel));
+    // Track held note for note-length recording
+    this._recHeldNotes.set(midi, { row: r, step: s });
     if (this._onRecordStep) this._onRecordStep(r, s);
+  }
+
+  recordNoteOff(midi) {
+    if (!this._playing || this._currentStep < 0) return;
+    const held = this._recHeldNotes.get(midi);
+    if (!held) return;
+    this._recHeldNotes.delete(midi);
+
+    const { row: r, step: startStep } = held;
+    const row = this._rows[r];
+    if (!row) return;
+
+    // Compute how many steps the note spans
+    let endStep = this._currentStep;
+    let span = (endStep - startStep + NUM_STEPS) % NUM_STEPS;
+    // If noteOff lands on the same step, span is 0 → single step, no glides needed
+    if (span <= 1) return;
+
+    // Fill intermediate steps with glides (ties)
+    const vel = row.vels[startStep];
+    for (let i = 1; i < span; i++) {
+      const s = (startStep + i) % NUM_STEPS;
+      row.notes[s] = row.notes[startStep];
+      row.gates[s] = 1;
+      row.vels[s] = vel;
+      // Set glide on previous step to tie into this one
+      const prev = (s - 1 + NUM_STEPS) % NUM_STEPS;
+      row.glides[prev] = 1;
+      if (this._onRecordStep) this._onRecordStep(r, s);
+    }
   }
 
   setBPM(bpm) { this._bpm = Math.max(40, Math.min(300, bpm)); }
@@ -330,8 +364,9 @@ export class StepSequencer {
           const midi = row.notes[step];
           if (glide && midi === row.lastPlayedMidi) return;
           row.lastPlayedMidi = midi;
+          const vel = row.vels[step] * row.volume;
           if (this._onNoteOn) {
-            this._onNoteOn(midiToFreq(midi), midi, midiToName(midi));
+            this._onNoteOn(midiToFreq(midi), midi, midiToName(midi), vel);
           }
         }
       }, delay);

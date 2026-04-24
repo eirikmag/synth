@@ -45,18 +45,22 @@ function updateVisualizerDrawMode() {
 
 /* --- Low-level audio note helpers (used by arp too) --- */
 
-function audioNoteOn(freq, midi, name) {
+function audioNoteOn(freq, midi, name, vel = 1) {
   ensureVisualizer();
   // Record into sequencer if recording + playing
   if (seq.recording && seq.playing) {
-    seq.recordNote(midi);
+    seq.recordNote(midi, vel);
   }
-  audio.noteOn(freq, midi);
+  audio.noteOn(freq, midi, vel);
   ui.showNote(name);
   ui.highlightKey(midi);
 }
 
 function audioNoteOff(midi) {
+  // Record note-off for note-length tracking
+  if (seq.recording && seq.playing) {
+    seq.recordNoteOff(midi);
+  }
   audio.noteOff(midi);
   ui.releaseKey(midi);
   if (audio.activeVoiceCount === 0) ui.clearNote();
@@ -72,7 +76,7 @@ const arp = new Arpeggiator({
 
 /* --- Input handlers (keyboard + piano clicks route here) --- */
 
-function noteOn(freq, midi, name) {
+function noteOn(freq, midi, name, vel = 1) {
   ensureVisualizer();
 
   switch (playMode) {
@@ -81,11 +85,11 @@ function noteOn(freq, midi, name) {
       audio.allNotesOff();
       ui.releaseAllKeys();
       monoHeld.push(midi);
-      audioNoteOn(freq, midi, name);
+      audioNoteOn(freq, midi, name, vel);
       break;
 
     case 'poly':
-      audioNoteOn(freq, midi, name);
+      audioNoteOn(freq, midi, name, vel);
       break;
 
     case 'arp':
@@ -253,8 +257,9 @@ function handleMIDIMessage(e) {
   const cmd = status & 0xf0;
 
   if (cmd === 0x90 && velocity > 0) {
-    // Note On
-    noteOn(midiToFreq(note), note, midiToName(note));
+    // Note On — normalize velocity 0-127 → 0-1
+    const vel = velocity / 127;
+    noteOn(midiToFreq(note), note, midiToName(note), vel);
   } else if (cmd === 0x80 || (cmd === 0x90 && velocity === 0)) {
     // Note Off
     noteOff(note);
@@ -495,9 +500,9 @@ function ensureSeqInit() {
   seqInited = true;
 
   seq.init(() => audio.context);
-  seq.onNoteOn = (freq, midi, name) => {
+  seq.onNoteOn = (freq, midi, name, vel = 1) => {
     ensureVisualizer();
-    audio.noteOn(freq, midi);
+    audio.noteOn(freq, midi, vel);
     ui.showNote(name);
     ui.highlightKey(midi);
   };
@@ -569,8 +574,10 @@ function buildSeqRow(grid, r) {
     cell.dataset.step = s;
     const gate = seq.getStepGate(r, s);
     const midi = seq.getStepNote(r, s);
+    const vel = seq.getStepVel(r, s);
     cell.classList.toggle('on', !!gate);
     cell.textContent = gate ? midiToName(midi) : '';
+    if (gate) cell.style.opacity = 0.3 + vel * 0.7;
 
     cell.addEventListener('click', (e) => {
       if (e.detail > 1) return;
@@ -608,9 +615,18 @@ function buildSeqRow(grid, r) {
     cell.addEventListener('wheel', (e) => {
       e.preventDefault();
       if (!seq.getStepGate(r, s)) return;
-      const dir = e.deltaY < 0 ? 1 : -1;
-      seq.setStepNote(r, s, seq.getStepNote(r, s) + dir);
-      cell.textContent = midiToName(seq.getStepNote(r, s));
+      if (e.shiftKey) {
+        // Shift+wheel adjusts velocity
+        const dir = e.deltaY < 0 ? 0.05 : -0.05;
+        const newVel = Math.max(0.05, Math.min(1, seq.getStepVel(r, s) + dir));
+        seq.setStepVel(r, s, newVel);
+        cell.style.opacity = 0.3 + newVel * 0.7;
+      } else {
+        // Plain wheel adjusts note
+        const dir = e.deltaY < 0 ? 1 : -1;
+        seq.setStepNote(r, s, seq.getStepNote(r, s) + dir);
+        cell.textContent = midiToName(seq.getStepNote(r, s));
+      }
     });
 
     stepsDiv.appendChild(cell);
@@ -763,10 +779,18 @@ function bindSeqControls() {
   seq.onRecordStep = (rowIdx, stepIdx) => {
     const grid = document.getElementById('seq-grid');
     if (!grid) return;
+    // Update note cell
     const cell = grid.querySelector(`.seq-note-cell[data-row="${rowIdx}"][data-step="${stepIdx}"]`);
     if (cell) {
       cell.classList.add('on');
       cell.textContent = midiToName(seq.getStepNote(rowIdx, stepIdx));
+      cell.style.opacity = 0.3 + seq.getStepVel(rowIdx, stepIdx) * 0.7;
+    }
+    // Update glide cell (previous step may have gotten a glide)
+    const prevStep = (stepIdx - 1 + seq.numSteps) % seq.numSteps;
+    const glideCell = grid.querySelector(`.seq-glide-cell[data-row="${rowIdx}"][data-step="${prevStep}"]`);
+    if (glideCell) {
+      glideCell.classList.toggle('on', !!seq.getStepGlide(rowIdx, prevStep));
     }
   };
 
