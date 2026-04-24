@@ -663,4 +663,98 @@ export class AudioEngine {
 
   setReverbMix(pct) { this._ensureContext(); this._reverb.setMix(pct / 100); }
   getReverbMix() { return this._reverb ? this._reverb.getState().mix * 100 : 30; }
+
+  /* ── Patch state serialization ── */
+
+  getState() {
+    return {
+      osc1: { ...this._osc1 },
+      osc2: { ...this._osc2 },
+      osc3: { ...this._osc3 },
+      filter: {
+        type: this._filterType,
+        model: this._filterModel,
+        cutoff: this._filterCutoff,
+        q: this._filterQ,
+        gain: this._filterGain,
+        cstGains: Array.from(this._cstGains),
+      },
+      adsr: this.getADSR(),
+      masterVolume: this._masterVol,
+      chorus: {
+        enabled: this.getChorusEnabled(),
+        rate: this.getChorusRate(),
+        depth: this.getChorusDepth(),
+        mix: this.getChorusMix(),
+        width: this.getChorusWidth(),
+        hpc: this.getChorusHPC(),
+      },
+      reverb: {
+        enabled: this.getReverbEnabled(),
+        decay: this.getReverbDecay(),
+        mix: this.getReverbMix(),
+      },
+    };
+  }
+
+  loadState(s) {
+    if (!s) return;
+    // OSC 1
+    if (s.osc1) {
+      if (s.osc1.waveform !== undefined) this.setWaveform(1, s.osc1.waveform);
+      if (s.osc1.volume !== undefined) this.setVolume(1, s.osc1.volume);
+      if (s.osc1.shape !== undefined) this.setShape(1, s.osc1.shape);
+      if (s.osc1.pitch !== undefined) this.setPitch(1, s.osc1.pitch);
+      if (s.osc1.octave !== undefined) this.setOctave(1, s.osc1.octave);
+    }
+    // OSC 2
+    if (s.osc2) {
+      if (s.osc2.waveform !== undefined) this.setWaveform(2, s.osc2.waveform);
+      if (s.osc2.volume !== undefined) this.setVolume(2, s.osc2.volume);
+      if (s.osc2.shape !== undefined) this.setShape(2, s.osc2.shape);
+      if (s.osc2.pitch !== undefined) this.setPitch(2, s.osc2.pitch);
+      if (s.osc2.octave !== undefined) this.setOctave(2, s.osc2.octave);
+    }
+    // OSC 3
+    if (s.osc3) {
+      if (s.osc3.mode !== undefined) this.setOsc3Mode(s.osc3.mode);
+      if (s.osc3.volume !== undefined) this.setOsc3Volume(s.osc3.volume);
+      if (s.osc3.octave !== undefined) this.setOsc3Octave(s.osc3.octave);
+      if (s.osc3.pitch !== undefined) this.setOsc3Pitch(s.osc3.pitch);
+      if (s.osc3.color !== undefined) this.setOsc3Color(s.osc3.color);
+      if (s.osc3.damping !== undefined) this.setOsc3Damping(s.osc3.damping);
+      if (s.osc3.ratio !== undefined) this.setOsc3Ratio(s.osc3.ratio);
+      if (s.osc3.index !== undefined) this.setOsc3Index(s.osc3.index);
+      if (s.osc3.morph !== undefined) this.setOsc3Morph(s.osc3.morph);
+      if (s.osc3.vibrato !== undefined) this.setOsc3Vibrato(s.osc3.vibrato);
+    }
+    // Filter
+    if (s.filter) {
+      if (s.filter.type !== undefined) this.setFilterType(s.filter.type);
+      if (s.filter.model !== undefined) this.setFilterModel(s.filter.model);
+      if (s.filter.cutoff !== undefined) this.setFilterCutoff(s.filter.cutoff);
+      if (s.filter.q !== undefined) this.setFilterQ(s.filter.q);
+      if (s.filter.gain !== undefined) this.setFilterGain(s.filter.gain);
+      if (s.filter.cstGains) this.setCustomFilterCurve(s.filter.cstGains);
+    }
+    // ADSR
+    if (s.adsr) this.setADSR(s.adsr);
+    // Master
+    if (s.masterVolume !== undefined) this.setMasterVolume(s.masterVolume);
+    // Chorus
+    if (s.chorus) {
+      if (s.chorus.enabled !== undefined) this.setChorusEnabled(s.chorus.enabled);
+      if (s.chorus.rate !== undefined) this.setChorusRate(s.chorus.rate);
+      if (s.chorus.depth !== undefined) this.setChorusDepth(s.chorus.depth);
+      if (s.chorus.mix !== undefined) this.setChorusMix(s.chorus.mix);
+      if (s.chorus.width !== undefined) this.setChorusWidth(s.chorus.width);
+      if (s.chorus.hpc !== undefined) this.setChorusHPC(s.chorus.hpc);
+    }
+    // Reverb
+    if (s.reverb) {
+      if (s.reverb.enabled !== undefined) this.setReverbEnabled(s.reverb.enabled);
+      if (s.reverb.decay !== undefined) this.setReverbDecay(s.reverb.decay);
+      if (s.reverb.mix !== undefined) this.setReverbMix(s.reverb.mix);
+    }
+  }
 }

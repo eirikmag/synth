@@ -379,4 +379,43 @@ export class StepSequencer {
       }, delay);
     });
   }
+
+  /* ── State serialization ── */
+
+  getState() {
+    return {
+      rows: this._rows.map(row => ({
+        notes:  [...row.notes],
+        gates:  [...row.gates],
+        vels:   [...row.vels],
+        glides: [...row.glides],
+        muted:  row.muted,
+        volume: row.volume,
+      })),
+    };
+  }
+
+  loadState(s) {
+    if (!s || !Array.isArray(s.rows) || s.rows.length === 0) return;
+    // Stop and release sounding notes
+    const wasPlaying = this._playing;
+    if (wasPlaying) this.stop();
+
+    // Rebuild rows
+    this._rows = s.rows.map(sr => {
+      const row = makeRow(DEFAULT_NOTE);
+      for (let i = 0; i < NUM_STEPS; i++) {
+        if (sr.notes && sr.notes[i] !== undefined) row.notes[i] = sr.notes[i];
+        if (sr.gates && sr.gates[i] !== undefined) row.gates[i] = sr.gates[i];
+        if (sr.vels  && sr.vels[i]  !== undefined) row.vels[i]  = sr.vels[i];
+        if (sr.glides && sr.glides[i] !== undefined) row.glides[i] = sr.glides[i];
+      }
+      row.muted  = !!sr.muted;
+      row.volume = sr.volume !== undefined ? sr.volume : 1.0;
+      return row;
+    });
+
+    if (this._recRow >= this._rows.length) this._recRow = 0;
+    this._recHeldNotes.clear();
+  }
 }

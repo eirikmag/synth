@@ -1149,6 +1149,114 @@ body {
   opacity: 1;
 }
 
+/* ===== Project popup ===== */
+.project-popup {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .3s ease, opacity .2s ease;
+  opacity: 0;
+  width: 1100px;
+  max-width: 98vw;
+}
+.project-popup.open {
+  max-height: 400px;
+  opacity: 1;
+}
+.project-popup-inner {
+  background: linear-gradient(180deg, #1e1e2a 0%, #22222e 100%);
+  border: 1px solid rgba(91,192,235,.2);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  padding: 14px 24px 12px;
+}
+.project-popup-inner .section-label {
+  margin-bottom: 10px;
+}
+.project-name-row {
+  margin-bottom: 10px;
+}
+.project-name-input {
+  background: #0e0e18;
+  border: 1px solid #2a2a3a;
+  border-radius: 4px;
+  color: #ccc;
+  padding: 6px 10px;
+  font-size: .75rem;
+  width: 200px;
+  font-family: inherit;
+}
+.project-name-input:focus {
+  outline: none;
+  border-color: #5bc0eb;
+}
+.project-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.project-action-btn {
+  padding: 6px 14px;
+  border: 1px solid #2a2a3a;
+  border-radius: 4px;
+  background: #0e0e18;
+  color: #999;
+  font-size: .65rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all .1s;
+}
+.project-action-btn:hover {
+  border-color: #5bc0eb;
+  color: #ccc;
+}
+.project-stored-label {
+  font-size: .55rem;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: #5bc0eb;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.project-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background: #0e0e18;
+  border: 1px solid #1a1a2a;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all .1s;
+}
+.project-list-item:hover {
+  border-color: #5bc0eb;
+}
+.project-list-name {
+  color: #aaa;
+  font-size: .7rem;
+}
+.project-delete-btn {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: .85rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.project-delete-btn:hover {
+  color: #e55;
+}
+
 /* ===== Arp popup ===== */
 .arp-popup {
   max-height: 0;

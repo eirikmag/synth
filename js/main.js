@@ -11,11 +11,13 @@ import { Arpeggiator } from './arpeggiator.js';
 import { LFO } from './lfo.js';
 import { DrumMachine, DRUM_TRACKS, TRACK_PARAM_DEFS, KIT_NAMES } from './drum-machine.js';
 import { StepSequencer } from './sequencer.js';
+import { PresetManager } from './preset-manager.js';
 
 const audio = new AudioEngine();
 const lfo = new LFO();
 const drums = new DrumMachine();
 const seq = new StepSequencer();
+const presets = new PresetManager();
 let visualizer = null;
 let playMode = 'mono'; // 'mono' | 'poly' | 'arp'
 
@@ -852,6 +854,176 @@ function bindSeqControls() {
   });
 }
 
+/* ── Project management ── */
+
+function getGlobalBPM() { return arp.getBPM(); }
+
+function setGlobalBPM(bpm) {
+  arp.setBPM(bpm);
+  drums.setBPM(bpm);
+  seq.setBPM(bpm);
+  ui.setTempo(bpm);
+}
+
+function setGlobalSwing(amount) {
+  drums.setSwing(amount);
+  seq.setSwing(amount);
+}
+
+function refreshAllUI() {
+  // Synth panel
+  ui.setWaveform(1, audio.getWaveform(1));
+  ui.setWaveform(2, audio.getWaveform(2));
+  ui.setOscVolume(1, audio.getVolume(1));
+  ui.setOscVolume(2, audio.getVolume(2));
+  ui.setOscShape(1, audio.getShape(1));
+  ui.setOscShape(2, audio.getShape(2));
+  ui.setOscPitch(1, audio.getPitch(1));
+  ui.setOscPitch(2, audio.getPitch(2));
+  ui.setOscOctave(1, audio.getOctave(1));
+  ui.setOscOctave(2, audio.getOctave(2));
+  ui.setFilterType(audio.getFilterType());
+  ui.setFilterModel(audio.getFilterModel());
+  ui.setFilterCutoff(audio.getFilterCutoff());
+  ui.setFilterQ(audio.getFilterQ());
+  ui.setFilterGain(audio.getFilterGain());
+  const adsr = audio.getADSR();
+  ui.setADSR(adsr);
+  ui.setMasterVolume(audio.getMasterVolume());
+  ui.setChorusEnabled(audio.getChorusEnabled());
+  ui.setChorusRate(audio.getChorusRate());
+  ui.setChorusDepth(audio.getChorusDepth());
+  ui.setChorusMix(audio.getChorusMix());
+  ui.setChorusWidth(audio.getChorusWidth());
+  ui.setChorusHPC(audio.getChorusHPC());
+  ui.setReverbEnabled(audio.getReverbEnabled());
+  ui.setReverbDecay(audio.getReverbDecay());
+  ui.setReverbMix(audio.getReverbMix());
+  ui.setLFOWaveform(lfo.getWaveform());
+  ui.setLFORate(lfo.getRate());
+  ui.setOsc3Mode(audio.getOsc3Mode());
+  ui.setOsc3Volume(audio.getOsc3Volume());
+  ui.setOsc3Pitch(audio.getOsc3Pitch());
+  ui.setOsc3Octave(audio.getOsc3Octave());
+  // Sequencer grid
+  if (document.getElementById('seq-grid')) {
+    refreshSeqGrid();
+  }
+  // Drum grid
+  if (document.getElementById('drum-grid')) {
+    buildDrumGrid();
+  }
+}
+
+function refreshProjectList() {
+  const list = document.getElementById('project-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const names = presets.listStoredProjects();
+  names.forEach(name => {
+    const item = document.createElement('div');
+    item.className = 'project-list-item';
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = name;
+    nameSpan.className = 'project-list-name';
+    nameSpan.addEventListener('click', () => {
+      const ok = presets.loadFromStorage(name, seq, drums, audio, lfo, setGlobalBPM, setGlobalSwing);
+      if (ok) {
+        const nameInput = document.getElementById('project-name');
+        if (nameInput) nameInput.value = name;
+        refreshAllUI();
+      }
+    });
+    const delBtn = document.createElement('button');
+    delBtn.className = 'project-delete-btn';
+    delBtn.textContent = '\u00D7';
+    delBtn.title = 'Delete project';
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      presets.deleteFromStorage(name);
+      refreshProjectList();
+    });
+    item.appendChild(nameSpan);
+    item.appendChild(delBtn);
+    list.appendChild(item);
+  });
+}
+
+function bindProjectControls() {
+  const saveBtn = document.getElementById('project-save');
+  const exportBtn = document.getElementById('project-export');
+  const importBtn = document.getElementById('project-import');
+  const importFile = document.getElementById('project-import-file');
+  const nameInput = document.getElementById('project-name');
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const name = (nameInput && nameInput.value.trim()) || 'Untitled';
+      presets.saveToStorage(name, getGlobalBPM(), 0, seq, drums, audio, lfo);
+      refreshProjectList();
+    });
+  }
+
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      const name = (nameInput && nameInput.value.trim()) || 'Untitled';
+      presets.exportJSON(name, getGlobalBPM(), 0, seq, drums, audio, lfo);
+    });
+  }
+
+  if (importBtn && importFile) {
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', async () => {
+      if (!importFile.files.length) return;
+      try {
+        const name = await presets.importJSON(
+          importFile.files[0], seq, drums, audio, lfo, setGlobalBPM, setGlobalSwing
+        );
+        if (name && nameInput) nameInput.value = name;
+        refreshAllUI();
+        refreshProjectList();
+      } catch (e) {
+        console.warn('Import failed:', e);
+      }
+      importFile.value = '';
+    });
+  }
+
+  // Patch save/load
+  const patchSaveBtn = document.getElementById('patch-save');
+  const patchNameInput = document.getElementById('patch-name');
+  const patchList = document.getElementById('patch-list');
+
+  if (patchSaveBtn) {
+    patchSaveBtn.addEventListener('click', () => {
+      const name = (patchNameInput && patchNameInput.value.trim()) || 'Patch 1';
+      presets.savePatch(name, audio, lfo);
+      refreshPatchList();
+    });
+  }
+
+  refreshProjectList();
+  refreshPatchList();
+}
+
+function refreshPatchList() {
+  const list = document.getElementById('patch-list');
+  if (!list) return;
+  list.innerHTML = '';
+  presets.getPatchIds().forEach(id => {
+    const item = document.createElement('div');
+    item.className = 'patch-list-item';
+    if (id === presets.currentPatchId) item.classList.add('active');
+    item.textContent = id;
+    item.addEventListener('click', () => {
+      presets.loadPatch(id, audio, lfo);
+      refreshAllUI();
+      refreshPatchList();
+    });
+    list.appendChild(item);
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   ui.init();
   initMIDI();
@@ -988,4 +1160,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.setOsc3Pitch(audio.getOsc3Pitch());
   ui.setOsc3Octave(audio.getOsc3Octave());
   keyboard.start();
+
+  /* ── Project save/load/export UI ── */
+  bindProjectControls();
 });

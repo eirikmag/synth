@@ -148,6 +148,28 @@
     </div>
   </div>
 
+  <!-- ===== PROJECT POPUP ===== -->
+  <div class="project-popup" id="project-popup">
+    <div class="project-popup-inner">
+      <div class="section-label">PROJECT</div>
+      <div class="project-controls">
+        <div class="project-name-row">
+          <input type="text" id="project-name" class="project-name-input" placeholder="Project name" value="Untitled" />
+        </div>
+        <div class="project-actions">
+          <button class="project-action-btn" id="project-save">SAVE</button>
+          <button class="project-action-btn" id="project-export">EXPORT</button>
+          <button class="project-action-btn" id="project-import">IMPORT</button>
+          <input type="file" id="project-import-file" accept=".json" class="hidden" />
+        </div>
+        <div class="project-stored">
+          <div class="project-stored-label">STORED PROJECTS</div>
+          <div class="project-list" id="project-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="synth">
     <!-- SVG overlay for LFO drag routing -->
     <svg class="lfo-drag-overlay" id="lfo-drag-overlay">
@@ -163,6 +185,7 @@
         <button class="fx-brand-btn" id="fx-btn">FX</button>
         <button class="fx-brand-btn" id="drum-btn">DRUM</button>
         <button class="fx-brand-btn" id="seq-btn">SEQ</button>
+        <button class="fx-brand-btn" id="project-btn">FILE</button>
         <div class="global-tempo">
           <button class="tempo-btn" id="tempo-down">-</button>
           <span class="tempo-display" id="tempo-display">120 BPM</span>

@@ -76,6 +76,23 @@ export class LFO {
     return this._routes.some(r => r.targetId === targetId);
   }
 
+  /* ── State serialization ── */
+
+  getState() {
+    return {
+      rate: this._rate,
+      waveform: this._waveform,
+      routes: this._routes.map(r => ({ targetId: r.targetId, amount: r.amount })),
+    };
+  }
+
+  loadState(s) {
+    if (!s) return;
+    if (s.rate !== undefined) this.setRate(s.rate);
+    if (s.waveform !== undefined) this.setWaveform(s.waveform);
+    // Routes are restored by caller after targets are registered
+  }
+
   /* --- internal animation loop --- */
 
   _startIfNeeded() {

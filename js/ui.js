@@ -505,6 +505,18 @@ export class UIManager {
         if (this._cb.onSeqToggle) this._cb.onSeqToggle(open);
       });
     }
+
+    // Project popup toggle
+    const projectBtn = document.getElementById('project-btn');
+    if (projectBtn) {
+      projectBtn.addEventListener('click', () => {
+        const popup = document.getElementById('project-popup');
+        if (!popup) return;
+        const open = !projectBtn.classList.contains('active');
+        projectBtn.classList.toggle('active', open);
+        popup.classList.toggle('open', open);
+      });
+    }
   }
 
   setPlayMode(mode) {

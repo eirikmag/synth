@@ -592,4 +592,45 @@ export class DrumMachine {
       }
     });
   }
+
+  /* ── State serialization ── */
+
+  getState() {
+    const tracks = {};
+    DRUM_TRACKS.forEach(t => {
+      tracks[t.id] = {
+        pattern: [...this._pattern[t.id]],
+        volume: this._trackVolumes[t.id],
+        muted: this._trackMuted[t.id],
+        params: { ...this._trackParams[t.id] },
+      };
+    });
+    return {
+      kit: this._currentKit,
+      masterVolume: this._masterVol,
+      tracks,
+    };
+  }
+
+  loadState(s) {
+    if (!s) return;
+    if (s.kit) this._currentKit = s.kit;
+    if (s.masterVolume !== undefined) this.setMasterVolume(s.masterVolume);
+    if (s.tracks) {
+      DRUM_TRACKS.forEach(t => {
+        const ts = s.tracks[t.id];
+        if (!ts) return;
+        if (Array.isArray(ts.pattern)) {
+          for (let i = 0; i < NUM_STEPS; i++) {
+            this._pattern[t.id][i] = ts.pattern[i] !== undefined ? ts.pattern[i] : 0;
+          }
+        }
+        if (ts.volume !== undefined) this._trackVolumes[t.id] = ts.volume;
+        if (ts.muted !== undefined) this._trackMuted[t.id] = !!ts.muted;
+        if (ts.params) {
+          this._trackParams[t.id] = { ...this._trackParams[t.id], ...ts.params };
+        }
+      });
+    }
+  }
 }
