@@ -111,6 +111,11 @@ body {
   min-height: auto;
 }
 
+.osc-stack .osc3-section {
+  flex: 1;
+  min-height: auto;
+}
+
 /* Vertical envelope + LFO stack */
 .env-lfo-stack {
   display: flex;
@@ -122,6 +127,56 @@ body {
 .env-lfo-stack .section {
   flex: 1;
   min-height: auto;
+}
+
+/* OSC 3 (alt engines) */
+
+.osc3-body {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.osc3-top {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.osc3-mode-selector {
+  display: flex;
+  gap: 3px;
+}
+
+.osc3-mode-btn {
+  padding: 5px 6px;
+  border: 1px solid #2a2a3a;
+  border-radius: 4px;
+  background: #0e0e18;
+  color: #777;
+  font-size: .55rem;
+  font-weight: 600;
+  letter-spacing: .5px;
+  cursor: pointer;
+  transition: all .1s;
+}
+.osc3-mode-btn:hover {
+  border-color: #5bc0eb;
+  color: #bbb;
+}
+.osc3-mode-btn.active {
+  background: #5bc0eb;
+  border-color: #5bc0eb;
+  color: #0a0a14;
+}
+
+.osc3-params {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.osc3-params.hidden {
+  display: none;
 }
 
 .section {

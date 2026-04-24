@@ -10,6 +10,7 @@
  */
 
 import { ChorusEffect, ReverbEffect } from './effects.js';
+import { ALT_MODES, createStringVoice, createFMVoice, createFormantVoice } from './alt-osc.js';
 
 const WAVEFORMS = ['sine', 'square', 'sawtooth', 'triangle'];
 const FILTER_TYPES = ['lowpass', 'highpass', 'bandpass', 'notch', 'lowshelf', 'highshelf'];
@@ -72,6 +73,14 @@ export class AudioEngine {
     // Per-oscillator config
     this._osc1 = { waveform: 'sawtooth', volume: 0.5, shape: 0, pitch: 0, octave: 0 };
     this._osc2 = { waveform: 'square',   volume: 0.0, shape: 0, pitch: 0, octave: 0 };
+
+    // OSC 3 (alt engines)
+    this._osc3 = {
+      mode: 'string', volume: 0.0, octave: 0, pitch: 0,
+      color: 0.5, damping: 0.5,      // STRING params
+      ratio: 2, index: 3,            // FM params
+      morph: 0, vibrato: 0.3,        // FORMANT params
+    };
 
     // Cached curves
     this._shapeCurve1 = makeShapeCurve(0);
@@ -457,14 +466,21 @@ export class AudioEngine {
     osc2Gain.connect(envGain);
     osc2.start();
 
-    this._voices.set(midi, { osc1, shaper1, osc1Gain, osc2, shaper2, osc2Gain, envGain, filters });
+    // OSC 3 (alt engine)
+    const osc3Gain = this._ctx.createGain();
+    osc3Gain.gain.value = this._osc3.volume;
+    osc3Gain.connect(envGain);
+    const osc3Freq = frequency * Math.pow(2, this._osc3.octave + this._osc3.pitch / 12);
+    const altVoice = this._createAltVoice(osc3Freq, osc3Gain);
+
+    this._voices.set(midi, { osc1, shaper1, osc1Gain, osc2, shaper2, osc2Gain, osc3Gain, altVoice, envGain, filters });
   }
 
   noteOff(midi) {
     const voice = this._voices.get(midi);
     if (!voice) return;
     const now = this._ctx.currentTime;
-    const { osc1, shaper1, osc1Gain, osc2, shaper2, osc2Gain, envGain, filters } = voice;
+    const { osc1, shaper1, osc1Gain, osc2, shaper2, osc2Gain, osc3Gain, altVoice, envGain, filters } = voice;
 
     envGain.gain.cancelScheduledValues(now);
     envGain.gain.setValueAtTime(envGain.gain.value, now);
@@ -473,9 +489,12 @@ export class AudioEngine {
     const stop = now + this._release + 0.01;
     osc1.stop(stop);
     osc2.stop(stop);
+    if (altVoice) altVoice.stop(stop);
     osc1.onended = () => { osc1.disconnect(); shaper1.disconnect(); osc1Gain.disconnect(); };
     osc2.onended = () => {
       osc2.disconnect(); shaper2.disconnect(); osc2Gain.disconnect();
+      if (osc3Gain) osc3Gain.disconnect();
+      if (altVoice) altVoice.disconnect();
       envGain.disconnect();
       filters.forEach(f => { try { f.disconnect(); } catch {} });
     };
@@ -497,10 +516,107 @@ export class AudioEngine {
     try { v.shaper2.disconnect(); } catch {}
     try { v.osc1Gain.disconnect(); } catch {}
     try { v.osc2Gain.disconnect(); } catch {}
+    if (v.osc3Gain) try { v.osc3Gain.disconnect(); } catch {}
+    if (v.altVoice) try { v.altVoice.stop(); v.altVoice.disconnect(); } catch {}
     try { v.envGain.disconnect(); } catch {}
     v.filters.forEach(f => { try { f.disconnect(); } catch {} });
     this._voices.delete(midi);
   }
+
+  /* --- OSC 3 (alt engines) --- */
+
+  _createAltVoice(frequency, destNode) {
+    const p = this._osc3;
+    switch (p.mode) {
+      case 'string':
+        return createStringVoice(this._ctx, frequency, destNode, { color: p.color, damping: p.damping });
+      case 'fm':
+        return createFMVoice(this._ctx, frequency, destNode, { ratio: p.ratio, index: p.index });
+      case 'formant':
+        return createFormantVoice(this._ctx, frequency, destNode, { morph: p.morph, vibrato: p.vibrato });
+      default:
+        return null;
+    }
+  }
+
+  setOsc3Mode(mode) {
+    if (!ALT_MODES.includes(mode)) return;
+    this._osc3.mode = mode;
+  }
+  getOsc3Mode() { return this._osc3.mode; }
+
+  setOsc3Volume(value) {
+    this._osc3.volume = Math.max(0, Math.min(1, value));
+    if (this._ctx) {
+      for (const v of this._voices.values()) {
+        if (v.osc3Gain) v.osc3Gain.gain.setTargetAtTime(this._osc3.volume, this._ctx.currentTime, 0.01);
+      }
+    }
+  }
+  getOsc3Volume() { return this._osc3.volume; }
+
+  setOsc3Octave(oct) {
+    this._osc3.octave = Math.max(-3, Math.min(3, Math.round(oct)));
+  }
+  getOsc3Octave() { return this._osc3.octave; }
+
+  setOsc3Pitch(semitones) {
+    this._osc3.pitch = Math.max(-7, Math.min(7, semitones));
+  }
+  getOsc3Pitch() { return this._osc3.pitch; }
+
+  // STRING params
+  setOsc3Color(v) {
+    this._osc3.color = Math.max(0, Math.min(1, v));
+    for (const voice of this._voices.values()) {
+      if (voice.altVoice && voice.altVoice.setColor) voice.altVoice.setColor(this._osc3.color);
+    }
+  }
+  getOsc3Color() { return this._osc3.color; }
+
+  setOsc3Damping(v) {
+    this._osc3.damping = Math.max(0, Math.min(1, v));
+    for (const voice of this._voices.values()) {
+      if (voice.altVoice && voice.altVoice.setDamping) voice.altVoice.setDamping(this._osc3.damping);
+    }
+  }
+  getOsc3Damping() { return this._osc3.damping; }
+
+  // FM params
+  setOsc3Ratio(v) {
+    this._osc3.ratio = Math.max(0.5, Math.min(12, v));
+    for (const voice of this._voices.values()) {
+      if (voice.altVoice && voice.altVoice.setRatio) voice.altVoice.setRatio(this._osc3.ratio);
+    }
+  }
+  getOsc3Ratio() { return this._osc3.ratio; }
+
+  setOsc3Index(v) {
+    this._osc3.index = Math.max(0, Math.min(20, v));
+    for (const voice of this._voices.values()) {
+      if (voice.altVoice && voice.altVoice.setIndex) voice.altVoice.setIndex(this._osc3.index);
+    }
+  }
+  getOsc3Index() { return this._osc3.index; }
+
+  // FORMANT params
+  setOsc3Morph(v) {
+    this._osc3.morph = Math.max(0, Math.min(1, v));
+    for (const voice of this._voices.values()) {
+      if (voice.altVoice && voice.altVoice.setMorph) voice.altVoice.setMorph(this._osc3.morph);
+    }
+  }
+  getOsc3Morph() { return this._osc3.morph; }
+
+  setOsc3Vibrato(v) {
+    this._osc3.vibrato = Math.max(0, Math.min(1, v));
+    for (const voice of this._voices.values()) {
+      if (voice.altVoice && voice.altVoice.setVibrato) voice.altVoice.setVibrato(this._osc3.vibrato);
+    }
+  }
+  getOsc3Vibrato() { return this._osc3.vibrato; }
+
+  get altModes() { return ALT_MODES; }
 
   /* --- effects --- */
 

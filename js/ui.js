@@ -28,6 +28,7 @@ export class UIManager {
     this._bindOscShapes();
     this._bindOscPitches();
     this._bindOscOctaves();
+    this._bindOsc3();
     this._bindFilter();
     this._bindADSR();
     this._bindPlayMode();
@@ -147,6 +148,134 @@ export class UIManager {
     if (!slider) return;
     slider.value = value;
     display.textContent = (value >= 0 ? '+' : '') + value;
+  }
+
+  /* --- OSC 3 (alt engines) --- */
+
+  _bindOsc3() {
+    // mode selector
+    document.querySelectorAll('.osc3-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.osc3-mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mode = btn.dataset.altmode;
+        this._updateOsc3ParamVisibility(mode);
+        if (this._cb.onOsc3ModeChange) this._cb.onOsc3ModeChange(mode);
+      });
+    });
+
+    // volume
+    const vol = document.getElementById('osc3-volume');
+    const volVal = document.getElementById('osc3-volume-value');
+    if (vol) vol.addEventListener('input', () => {
+      const v = parseFloat(vol.value);
+      volVal.textContent = Math.round(v * 100) + '%';
+      if (this._cb.onOsc3VolumeChange) this._cb.onOsc3VolumeChange(v);
+    });
+
+    // pitch
+    const pitch = document.getElementById('osc3-pitch');
+    const pitchVal = document.getElementById('osc3-pitch-value');
+    if (pitch) pitch.addEventListener('input', () => {
+      const v = parseFloat(pitch.value);
+      pitchVal.textContent = v.toFixed(2) + ' st';
+      if (this._cb.onOsc3PitchChange) this._cb.onOsc3PitchChange(v);
+    });
+
+    // octave
+    const oct = document.getElementById('osc3-octave');
+    const octVal = document.getElementById('osc3-octave-value');
+    if (oct) oct.addEventListener('input', () => {
+      const v = parseInt(oct.value);
+      octVal.textContent = v;
+      if (this._cb.onOsc3OctaveChange) this._cb.onOsc3OctaveChange(v);
+    });
+
+    // STRING: color, damping
+    const color = document.getElementById('osc3-color');
+    const colorVal = document.getElementById('osc3-color-value');
+    if (color) color.addEventListener('input', () => {
+      const v = parseFloat(color.value);
+      colorVal.textContent = Math.round(v * 100) + '%';
+      if (this._cb.onOsc3ColorChange) this._cb.onOsc3ColorChange(v);
+    });
+
+    const damping = document.getElementById('osc3-damping');
+    const dampVal = document.getElementById('osc3-damping-value');
+    if (damping) damping.addEventListener('input', () => {
+      const v = parseFloat(damping.value);
+      dampVal.textContent = Math.round(v * 100) + '%';
+      if (this._cb.onOsc3DampingChange) this._cb.onOsc3DampingChange(v);
+    });
+
+    // FM: ratio, index
+    const ratio = document.getElementById('osc3-ratio');
+    const ratioVal = document.getElementById('osc3-ratio-value');
+    if (ratio) ratio.addEventListener('input', () => {
+      const v = parseFloat(ratio.value);
+      ratioVal.textContent = v.toFixed(1);
+      if (this._cb.onOsc3RatioChange) this._cb.onOsc3RatioChange(v);
+    });
+
+    const index = document.getElementById('osc3-index');
+    const indexVal = document.getElementById('osc3-index-value');
+    if (index) index.addEventListener('input', () => {
+      const v = parseFloat(index.value);
+      indexVal.textContent = v.toFixed(1);
+      if (this._cb.onOsc3IndexChange) this._cb.onOsc3IndexChange(v);
+    });
+
+    // FORMANT: morph, vibrato
+    const morph = document.getElementById('osc3-morph');
+    const morphVal = document.getElementById('osc3-morph-value');
+    if (morph) morph.addEventListener('input', () => {
+      const v = parseFloat(morph.value);
+      const vowels = ['A', 'E', 'I', 'O', 'U'];
+      const idx = v * (vowels.length - 1);
+      const lo = Math.floor(idx), hi = Math.min(lo + 1, vowels.length - 1);
+      const frac = idx - lo;
+      morphVal.textContent = frac < 0.15 ? vowels[lo] : frac > 0.85 ? vowels[hi] : vowels[lo] + '-' + vowels[hi];
+      if (this._cb.onOsc3MorphChange) this._cb.onOsc3MorphChange(v);
+    });
+
+    const vibrato = document.getElementById('osc3-vibrato');
+    const vibVal = document.getElementById('osc3-vibrato-value');
+    if (vibrato) vibrato.addEventListener('input', () => {
+      const v = parseFloat(vibrato.value);
+      vibVal.textContent = Math.round(v * 100) + '%';
+      if (this._cb.onOsc3VibratoChange) this._cb.onOsc3VibratoChange(v);
+    });
+  }
+
+  _updateOsc3ParamVisibility(mode) {
+    document.getElementById('osc3-string-params').classList.toggle('hidden', mode !== 'string');
+    document.getElementById('osc3-fm-params').classList.toggle('hidden', mode !== 'fm');
+    document.getElementById('osc3-formant-params').classList.toggle('hidden', mode !== 'formant');
+  }
+
+  setOsc3Mode(mode) {
+    document.querySelectorAll('.osc3-mode-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.altmode === mode);
+    });
+    this._updateOsc3ParamVisibility(mode);
+  }
+
+  setOsc3Volume(v) {
+    const el = document.getElementById('osc3-volume');
+    const d = document.getElementById('osc3-volume-value');
+    if (el) { el.value = v; d.textContent = Math.round(v * 100) + '%'; }
+  }
+
+  setOsc3Pitch(v) {
+    const el = document.getElementById('osc3-pitch');
+    const d = document.getElementById('osc3-pitch-value');
+    if (el) { el.value = v; d.textContent = v.toFixed(2) + ' st'; }
+  }
+
+  setOsc3Octave(v) {
+    const el = document.getElementById('osc3-octave');
+    const d = document.getElementById('osc3-octave-value');
+    if (el) { el.value = v; d.textContent = v; }
   }
 
   /* --- filter --- */

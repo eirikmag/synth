@@ -186,6 +186,77 @@
             </div>
           </div>
 
+        <!-- OSC 3 (alt engines) -->
+        <div class="section osc3-section">
+          <div class="section-label">OSC 3</div>
+          <div class="section-body osc3-body">
+            <div class="osc3-top">
+              <div class="knob-group">
+                <label>Engine</label>
+                <div class="osc3-mode-selector">
+                  <button class="osc3-mode-btn active" data-altmode="string">STR</button>
+                  <button class="osc3-mode-btn" data-altmode="fm">FM</button>
+                  <button class="osc3-mode-btn" data-altmode="formant">VOX</button>
+                </div>
+              </div>
+              <div class="knob-group" data-route-target="osc3-volume">
+                <label>Vol</label>
+                <input type="range" id="osc3-volume" class="adsr-slider" min="0" max="1" step="0.01" value="0" />
+                <span class="knob-value" id="osc3-volume-value">0%</span>
+              </div>
+              <div class="knob-group" data-route-target="osc3-pitch">
+                <label>Pitch</label>
+                <input type="range" id="osc3-pitch" class="adsr-slider" min="-7" max="7" step="0.01" value="0" />
+                <span class="knob-value" id="osc3-pitch-value">0.00 st</span>
+              </div>
+              <div class="knob-group">
+                <label>Oct</label>
+                <input type="range" id="osc3-octave" class="adsr-slider" min="-3" max="3" step="1" value="0" />
+                <span class="knob-value" id="osc3-octave-value">0</span>
+              </div>
+            </div>
+            <!-- STRING params -->
+            <div class="osc3-params" id="osc3-string-params">
+              <div class="filter-slider-row" data-route-target="osc3-color">
+                <label>Color</label>
+                <input type="range" id="osc3-color" class="knob-slider filter-knob" min="0" max="1" step="0.01" value="0.5" />
+                <span class="knob-value" id="osc3-color-value">50%</span>
+              </div>
+              <div class="filter-slider-row" data-route-target="osc3-damping">
+                <label>Damp</label>
+                <input type="range" id="osc3-damping" class="knob-slider filter-knob" min="0" max="1" step="0.01" value="0.5" />
+                <span class="knob-value" id="osc3-damping-value">50%</span>
+              </div>
+            </div>
+            <!-- FM params -->
+            <div class="osc3-params hidden" id="osc3-fm-params">
+              <div class="filter-slider-row" data-route-target="osc3-ratio">
+                <label>Ratio</label>
+                <input type="range" id="osc3-ratio" class="knob-slider filter-knob" min="0.5" max="12" step="0.1" value="2" />
+                <span class="knob-value" id="osc3-ratio-value">2.0</span>
+              </div>
+              <div class="filter-slider-row" data-route-target="osc3-index">
+                <label>Index</label>
+                <input type="range" id="osc3-index" class="knob-slider filter-knob" min="0" max="20" step="0.1" value="3" />
+                <span class="knob-value" id="osc3-index-value">3.0</span>
+              </div>
+            </div>
+            <!-- FORMANT params -->
+            <div class="osc3-params hidden" id="osc3-formant-params">
+              <div class="filter-slider-row" data-route-target="osc3-morph">
+                <label>Morph</label>
+                <input type="range" id="osc3-morph" class="knob-slider filter-knob" min="0" max="1" step="0.01" value="0" />
+                <span class="knob-value" id="osc3-morph-value">A</span>
+              </div>
+              <div class="filter-slider-row" data-route-target="osc3-vibrato">
+                <label>Vibrato</label>
+                <input type="range" id="osc3-vibrato" class="knob-slider filter-knob" min="0" max="1" step="0.01" value="0.3" />
+                <span class="knob-value" id="osc3-vibrato-value">30%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         </div><!-- /osc-stack -->
 
         <!-- FILTER -->

@@ -183,6 +183,22 @@ const ui = new UIManager({
   onLFORouteAdd(targetId) { lfo.addRoute(targetId); },
   onLFORouteRemove(targetId) { lfo.removeRoute(targetId); },
   onLFORouteAmountChange(targetId, amount) { lfo.setRouteAmount(targetId, amount); },
+  onOsc3ModeChange(mode) { audio.setOsc3Mode(mode); },
+  onOsc3VolumeChange(v) {
+    audio.setOsc3Volume(v);
+    lfo.updateBase('osc3-volume', v);
+  },
+  onOsc3PitchChange(v) {
+    audio.setOsc3Pitch(v);
+    lfo.updateBase('osc3-pitch', v);
+  },
+  onOsc3OctaveChange(v) { audio.setOsc3Octave(v); },
+  onOsc3ColorChange(v) { audio.setOsc3Color(v); },
+  onOsc3DampingChange(v) { audio.setOsc3Damping(v); },
+  onOsc3RatioChange(v) { audio.setOsc3Ratio(v); },
+  onOsc3IndexChange(v) { audio.setOsc3Index(v); },
+  onOsc3MorphChange(v) { audio.setOsc3Morph(v); },
+  onOsc3VibratoChange(v) { audio.setOsc3Vibrato(v); },
   onNoteOn: noteOn,
   onNoteOff: noteOff,
 });
@@ -275,6 +291,46 @@ document.addEventListener('DOMContentLoaded', () => {
       get: () => audio.getFilterGain(),
       set: (v) => audio.setFilterGain(v),
     },
+    'osc3-volume': {
+      label: 'O3 Vol', min: 0, max: 1,
+      get: () => audio.getOsc3Volume(),
+      set: (v) => audio.setOsc3Volume(v),
+    },
+    'osc3-pitch': {
+      label: 'O3 Pit', min: -7, max: 7,
+      get: () => audio.getOsc3Pitch(),
+      set: (v) => audio.setOsc3Pitch(v),
+    },
+    'osc3-color': {
+      label: 'O3 Clr', min: 0, max: 1,
+      get: () => audio.getOsc3Color(),
+      set: (v) => audio.setOsc3Color(v),
+    },
+    'osc3-damping': {
+      label: 'O3 Dmp', min: 0, max: 1,
+      get: () => audio.getOsc3Damping(),
+      set: (v) => audio.setOsc3Damping(v),
+    },
+    'osc3-ratio': {
+      label: 'O3 Rat', min: 0.5, max: 12,
+      get: () => audio.getOsc3Ratio(),
+      set: (v) => audio.setOsc3Ratio(v),
+    },
+    'osc3-index': {
+      label: 'O3 Idx', min: 0, max: 20,
+      get: () => audio.getOsc3Index(),
+      set: (v) => audio.setOsc3Index(v),
+    },
+    'osc3-morph': {
+      label: 'O3 Mph', min: 0, max: 1,
+      get: () => audio.getOsc3Morph(),
+      set: (v) => audio.setOsc3Morph(v),
+    },
+    'osc3-vibrato': {
+      label: 'O3 Vib', min: 0, max: 1,
+      get: () => audio.getOsc3Vibrato(),
+      set: (v) => audio.setOsc3Vibrato(v),
+    },
   });
 
   lfo.setOnRoutesChange(() => {
@@ -313,5 +369,9 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.setReverbMix(audio.getReverbMix());
   ui.setLFOWaveform(lfo.getWaveform());
   ui.setLFORate(lfo.getRate());
+  ui.setOsc3Mode(audio.getOsc3Mode());
+  ui.setOsc3Volume(audio.getOsc3Volume());
+  ui.setOsc3Pitch(audio.getOsc3Pitch());
+  ui.setOsc3Octave(audio.getOsc3Octave());
   keyboard.start();
 });
