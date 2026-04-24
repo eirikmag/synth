@@ -67,10 +67,14 @@ export class StepSequencer {
     this._vels   = new Array(NUM_STEPS).fill(1);
     this._glides = new Array(NUM_STEPS).fill(0);
 
+    // Recording
+    this._recording = false;
+
     // Callbacks
     this._onNoteOn = null;
     this._onNoteOff = null;
     this._onStep = null;
+    this._onRecordStep = null;
 
     // AudioContext provider
     this._getCtx = null;
@@ -89,6 +93,18 @@ export class StepSequencer {
   set onNoteOn(fn) { this._onNoteOn = fn; }
   set onNoteOff(fn) { this._onNoteOff = fn; }
   set onStep(fn) { this._onStep = fn; }
+  set onRecordStep(fn) { this._onRecordStep = fn; }
+
+  get recording() { return this._recording; }
+  setRecording(on) { this._recording = !!on; }
+
+  recordNote(midi) {
+    if (!this._playing || this._currentStep < 0) return;
+    const s = this._currentStep;
+    this._notes[s] = Math.max(0, Math.min(127, midi));
+    this._gates[s] = 1;
+    if (this._onRecordStep) this._onRecordStep(s);
+  }
 
   setBPM(bpm) { this._bpm = Math.max(40, Math.min(300, bpm)); }
   setSwing(amount) { this._swing = Math.max(0, Math.min(0.7, amount)); }

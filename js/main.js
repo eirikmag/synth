@@ -47,6 +47,10 @@ function updateVisualizerDrawMode() {
 
 function audioNoteOn(freq, midi, name) {
   ensureVisualizer();
+  // Record into sequencer if recording + playing
+  if (seq.recording && seq.playing) {
+    seq.recordNote(midi);
+  }
   audio.noteOn(freq, midi);
   ui.showNote(name);
   ui.highlightKey(midi);
@@ -480,7 +484,12 @@ function ensureSeqInit() {
   seqInited = true;
 
   seq.init(() => audio.context);
-  seq.onNoteOn = audioNoteOn;
+  seq.onNoteOn = (freq, midi, name) => {
+    ensureVisualizer();
+    audio.noteOn(freq, midi);
+    ui.showNote(name);
+    ui.highlightKey(midi);
+  };
   seq.onNoteOff = audioNoteOff;
   seq.setBPM(arp.getBPM());
   buildSeqGrid();
@@ -638,14 +647,17 @@ function parseNoteName(str) {
 
 function bindSeqControls() {
   const playBtn = document.getElementById('seq-play');
+  const recBtn = document.getElementById('seq-rec');
   const clearBtn = document.getElementById('seq-clear');
 
   if (playBtn) {
     playBtn.addEventListener('click', () => {
       if (seq.playing) {
         seq.stop();
+        seq.setRecording(false);
         playBtn.textContent = 'PLAY';
         playBtn.classList.remove('active');
+        if (recBtn) recBtn.classList.remove('active');
       } else {
         if (drums.playing) {
           const s = drums.getScheduleState();
@@ -658,6 +670,36 @@ function bindSeqControls() {
       }
     });
   }
+
+  if (recBtn) {
+    recBtn.addEventListener('click', () => {
+      const on = !seq.recording;
+      seq.setRecording(on);
+      recBtn.classList.toggle('active', on);
+      // Auto-start playback if not already playing
+      if (on && !seq.playing && playBtn) {
+        if (drums.playing) {
+          const s = drums.getScheduleState();
+          seq.startAt(s.nextStepTime, s.currentStep);
+        } else {
+          seq.start();
+        }
+        playBtn.textContent = 'STOP';
+        playBtn.classList.add('active');
+      }
+    });
+  }
+
+  // Refresh grid cell when a note is recorded
+  seq.onRecordStep = (stepIdx) => {
+    const grid = document.getElementById('seq-grid');
+    if (!grid) return;
+    const cell = grid.querySelector(`.seq-note-cell[data-step="${stepIdx}"]`);
+    if (cell) {
+      cell.classList.add('on');
+      cell.textContent = midiToName(seq.getStepNote(stepIdx));
+    }
+  };
 
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {

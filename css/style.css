@@ -532,6 +532,14 @@ body {
   border-color: #5bc0eb;
   color: #0a0a14;
 }
+.seq-rec-btn.active {
+  background: #e03040;
+  border-color: #e03040;
+  color: #fff;
+}
+.seq-rec-btn.active:hover {
+  border-color: #ff5060;
+}
 .seq-preset-group {
   display: flex;
   align-items: center;
