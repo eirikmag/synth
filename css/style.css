@@ -598,7 +598,6 @@ body {
 }
 .seq-row-steps {
   display: flex;
-  gap: 2px;
   flex: 1;
 }
 .seq-note-cell {
@@ -616,6 +615,10 @@ body {
   font-weight: 600;
   color: #555;
   user-select: none;
+  margin-left: 2px;
+}
+.seq-note-cell:first-child {
+  margin-left: 0;
 }
 .seq-note-cell:hover {
   border-color: #444;
@@ -632,6 +635,30 @@ body {
 .seq-note-cell:nth-child(4n+1) {
   border-left: 2px solid #333;
 }
+
+/* Tied note spans (long notes extending across steps) */
+.seq-note-cell.tie-start {
+  border-radius: 2px 0 0 2px;
+  border-right: none;
+  margin-right: 0;
+}
+.seq-note-cell.tie-mid {
+  margin-left: 0;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+.seq-note-cell.tie-end {
+  margin-left: 0;
+  border-radius: 0 2px 2px 0;
+  border-left: none;
+}
+/* Override beat marker for tied continuations */
+.seq-note-cell.tie-mid:nth-child(4n+1),
+.seq-note-cell.tie-end:nth-child(4n+1) {
+  border-left: none;
+}
+
 /* Glide row — same step alignment */
 .seq-glide-row {
   display: flex;

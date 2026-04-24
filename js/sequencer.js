@@ -156,10 +156,17 @@ export class StepSequencer {
 
   recordNote(midi, vel = 1) {
     if (!this._playing || this._currentStep < 0) return;
+    // Finalize any previous held instance of this same MIDI note
+    if (this._recHeldNotes.has(midi)) {
+      this.recordNoteOff(midi);
+    }
     const r = this._recRow;
     const s = this._currentStep;
     const row = this._rows[r];
     if (!row) return;
+    // Clear glide on previous step so re-triggers aren't merged into a tie
+    const prev = (s - 1 + NUM_STEPS) % NUM_STEPS;
+    row.glides[prev] = 0;
     row.notes[s] = Math.max(0, Math.min(127, midi));
     row.gates[s] = 1;
     row.vels[s] = Math.max(0, Math.min(1, vel));
@@ -181,12 +188,12 @@ export class StepSequencer {
     // Compute how many steps the note spans
     let endStep = this._currentStep;
     let span = (endStep - startStep + NUM_STEPS) % NUM_STEPS;
-    // If noteOff lands on the same step, span is 0 → single step, no glides needed
-    if (span <= 1) return;
+    // Same step → single step note, no extension needed
+    if (span === 0) return;
 
-    // Fill intermediate steps with glides (ties)
+    // Fill held steps with ties, including endStep
     const vel = row.vels[startStep];
-    for (let i = 1; i < span; i++) {
+    for (let i = 1; i <= span; i++) {
       const s = (startStep + i) % NUM_STEPS;
       row.notes[s] = row.notes[startStep];
       row.gates[s] = 1;

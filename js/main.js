@@ -542,6 +542,40 @@ function buildSeqGrid() {
   };
 }
 
+/* -- Tie visualization: detect note spans connected by glides -- */
+function applySeqTieClasses(r) {
+  const grid = document.getElementById('seq-grid');
+  if (!grid) return;
+  const cells = Array.from(grid.querySelectorAll(`.seq-note-cell[data-row="${r}"]`));
+  if (cells.length !== seq.numSteps) return;
+
+  cells.forEach(c => c.classList.remove('tie-start', 'tie-mid', 'tie-end'));
+
+  for (let s = 0; s < seq.numSteps; s++) {
+    if (!seq.getStepGate(r, s)) continue;
+
+    const tiedFromPrev = s > 0
+      && seq.getStepGate(r, s - 1)
+      && seq.getStepGlide(r, s - 1)
+      && seq.getStepNote(r, s) === seq.getStepNote(r, s - 1);
+
+    const tiesToNext = s < seq.numSteps - 1
+      && seq.getStepGlide(r, s)
+      && seq.getStepGate(r, s + 1)
+      && seq.getStepNote(r, s) === seq.getStepNote(r, s + 1);
+
+    if (tiedFromPrev && tiesToNext) {
+      cells[s].classList.add('tie-mid');
+      cells[s].textContent = '';
+    } else if (tiedFromPrev) {
+      cells[s].classList.add('tie-end');
+      cells[s].textContent = '';
+    } else if (tiesToNext) {
+      cells[s].classList.add('tie-start');
+    }
+  }
+}
+
 function buildSeqRow(grid, r) {
   const rowGroup = document.createElement('div');
   rowGroup.className = 'seq-row-group';
@@ -584,6 +618,7 @@ function buildSeqRow(grid, r) {
       const on = seq.toggleGate(r, s);
       cell.classList.toggle('on', !!on);
       cell.textContent = on ? midiToName(seq.getStepNote(r, s)) : '';
+      applySeqTieClasses(r);
     });
 
     cell.addEventListener('dblclick', () => {
@@ -604,6 +639,7 @@ function buildSeqRow(grid, r) {
         const parsed = parseNoteName(input.value);
         if (parsed !== null) seq.setStepNote(r, s, parsed);
         if (input.parentNode) cell.textContent = midiToName(seq.getStepNote(r, s));
+        applySeqTieClasses(r);
       };
       input.addEventListener('blur', commit);
       input.addEventListener('keydown', (e) => {
@@ -626,6 +662,7 @@ function buildSeqRow(grid, r) {
         const dir = e.deltaY < 0 ? 1 : -1;
         seq.setStepNote(r, s, seq.getStepNote(r, s) + dir);
         cell.textContent = midiToName(seq.getStepNote(r, s));
+        applySeqTieClasses(r);
       }
     });
 
@@ -692,6 +729,7 @@ function buildSeqRow(grid, r) {
       const on = seq.getStepGlide(r, s) ? 0 : 1;
       seq.setStepGlide(r, s, on);
       cell.classList.toggle('on', !!on);
+      applySeqTieClasses(r);
     });
     glideSteps.appendChild(cell);
   }
@@ -704,6 +742,9 @@ function buildSeqRow(grid, r) {
 
   rowGroup.appendChild(glideRow);
   grid.appendChild(rowGroup);
+
+  // Apply tie visualization after row is in the DOM
+  applySeqTieClasses(r);
 }
 
 function refreshSeqGrid() {
@@ -792,6 +833,8 @@ function bindSeqControls() {
     if (glideCell) {
       glideCell.classList.toggle('on', !!seq.getStepGlide(rowIdx, prevStep));
     }
+    // Re-apply tie visualization
+    applySeqTieClasses(rowIdx);
   };
 
   if (clearBtn) {
