@@ -1,51 +1,72 @@
 /**
- * Step Sequencer -- 16-step note sequencer for the synth.
+ * Step Sequencer -- multi-row 16-step note sequencer for the synth.
  *
- * Each step has: on/off, MIDI note number, velocity (0-1), glide (tie to next).
- * Uses the same look-ahead scheduler pattern as the drum machine
- * so it stays perfectly beat-locked to global BPM.
+ * Each row is an independent note line with its own notes/gates/glides/mute/volume.
+ * Uses the same look-ahead scheduler pattern as the drum machine.
  *
  * Callbacks:
  *   onNoteOn(freq, midi, name)  -- trigger synth note
  *   onNoteOff(midi)             -- release synth note
  *   onStep(stepIndex)           -- UI highlight
+ *   onRecordStep(rowIdx, stepIdx) -- UI update after recording
  */
 
 import { midiToFreq, midiToName } from './keyboard.js';
 
 const NUM_STEPS = 16;
 const DEFAULT_NOTE = 60; // C4
+const MAX_ROWS = 8;
 
-/* ── Preset sequences ────────────────────────────────────── */
+function makeRow(defaultNote) {
+  return {
+    notes:  new Array(NUM_STEPS).fill(defaultNote || DEFAULT_NOTE),
+    gates:  new Array(NUM_STEPS).fill(0),
+    vels:   new Array(NUM_STEPS).fill(1),
+    glides: new Array(NUM_STEPS).fill(0),
+    muted:  false,
+    volume: 1.0,
+    lastPlayedMidi: null,
+  };
+}
+
+/* -- Preset sequences -- */
 
 const SEQ_PRESETS = {
   'arpUp': {
     label: 'ARP',
-    notes:   [60,62,64,65, 67,69,71,72, 72,71,69,67, 65,64,62,60],
-    gates:   [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
-    vels:    [1,0.8,0.8,0.8, 1,0.8,0.8,0.8, 1,0.8,0.8,0.8, 1,0.8,0.8,0.8],
-    glides:  [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    rows: [{
+      notes:   [60,62,64,65, 67,69,71,72, 72,71,69,67, 65,64,62,60],
+      gates:   [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+      vels:    [1,0.8,0.8,0.8, 1,0.8,0.8,0.8, 1,0.8,0.8,0.8, 1,0.8,0.8,0.8],
+      glides:  [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    }],
   },
   'bass1': {
     label: 'BASS',
-    notes:   [36,36,0,36, 38,0,36,0, 36,36,0,41, 38,0,36,0],
-    gates:   [1,1,0,1, 1,0,1,0, 1,1,0,1, 1,0,1,0],
-    vels:    [1,0.7,0,0.8, 0.9,0,0.7,0, 1,0.7,0,0.8, 0.9,0,0.7,0],
-    glides:  [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    rows: [{
+      notes:   [36,36,0,36, 38,0,36,0, 36,36,0,41, 38,0,36,0],
+      gates:   [1,1,0,1, 1,0,1,0, 1,1,0,1, 1,0,1,0],
+      vels:    [1,0.7,0,0.8, 0.9,0,0.7,0, 1,0.7,0,0.8, 0.9,0,0.7,0],
+      glides:  [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    }],
   },
   'acid': {
     label: 'ACID',
-    notes:   [36,36,48,36, 39,36,48,39, 36,36,48,36, 41,39,36,48],
-    gates:   [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
-    vels:    [1,0.6,0.9,0.5, 0.8,0.6,1,0.7, 1,0.6,0.9,0.5, 0.8,0.7,0.6,1],
-    glides:  [0,1,0,1, 0,1,0,0, 0,1,0,1, 0,0,1,0],
+    rows: [{
+      notes:   [36,36,48,36, 39,36,48,39, 36,36,48,36, 41,39,36,48],
+      gates:   [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+      vels:    [1,0.6,0.9,0.5, 0.8,0.6,1,0.7, 1,0.6,0.9,0.5, 0.8,0.7,0.6,1],
+      glides:  [0,1,0,1, 0,1,0,0, 0,1,0,1, 0,0,1,0],
+    }],
   },
   'melody': {
     label: 'MEL',
-    notes:   [60,64,67,72, 71,67,64,60, 62,65,69,74, 72,69,65,62],
-    gates:   [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
-    vels:    [1,0.8,0.8,0.9, 0.8,0.7,0.7,0.8, 1,0.8,0.8,0.9, 0.8,0.7,0.7,0.8],
-    glides:  [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    rows: [{
+      notes:   [60,64,67,72, 71,67,64,60, 62,65,69,74, 72,69,65,62],
+      gates:   [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+      vels:    [1,0.8,0.8,0.9, 0.8,0.7,0.7,0.8, 1,0.8,0.8,0.9, 0.8,0.7,0.7,0.8],
+      glides:  [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    }],
   },
 };
 
@@ -59,13 +80,10 @@ export class StepSequencer {
     this._currentStep = -1;
     this._nextStepTime = 0;
     this._timerID = null;
-    this._lastPlayedMidi = null;
 
-    // Per-step state
-    this._notes  = new Array(NUM_STEPS).fill(DEFAULT_NOTE);
-    this._gates  = new Array(NUM_STEPS).fill(0);
-    this._vels   = new Array(NUM_STEPS).fill(1);
-    this._glides = new Array(NUM_STEPS).fill(0);
+    // Multi-row state
+    this._rows = [makeRow(DEFAULT_NOTE)];
+    this._recRow = 0; // row that receives recorded notes
 
     // Recording
     this._recording = false;
@@ -89,6 +107,9 @@ export class StepSequencer {
   get playing() { return this._playing; }
   get currentStep() { return this._currentStep; }
   get numSteps() { return NUM_STEPS; }
+  get numRows() { return this._rows.length; }
+  get maxRows() { return MAX_ROWS; }
+  get recRow() { return this._recRow; }
 
   set onNoteOn(fn) { this._onNoteOn = fn; }
   set onNoteOff(fn) { this._onNoteOff = fn; }
@@ -98,62 +119,118 @@ export class StepSequencer {
   get recording() { return this._recording; }
   setRecording(on) { this._recording = !!on; }
 
+  /* -- row management -- */
+
+  addRow() {
+    if (this._rows.length >= MAX_ROWS) return -1;
+    this._rows.push(makeRow(DEFAULT_NOTE));
+    return this._rows.length - 1;
+  }
+
+  removeRow(r) {
+    if (this._rows.length <= 1 || r < 0 || r >= this._rows.length) return;
+    // Release any sounding note on this row
+    const row = this._rows[r];
+    if (row.lastPlayedMidi != null && this._onNoteOff) {
+      this._onNoteOff(row.lastPlayedMidi);
+    }
+    this._rows.splice(r, 1);
+    if (this._recRow >= this._rows.length) this._recRow = this._rows.length - 1;
+  }
+
+  setRecRow(r) {
+    if (r >= 0 && r < this._rows.length) this._recRow = r;
+  }
+
+  /* -- per-row mute/volume -- */
+
+  getRowMuted(r)      { return this._rows[r] ? this._rows[r].muted : false; }
+  setRowMuted(r, on)  { if (this._rows[r]) this._rows[r].muted = !!on; }
+  toggleRowMute(r)    { if (this._rows[r]) { this._rows[r].muted = !this._rows[r].muted; return this._rows[r].muted; } return false; }
+
+  getRowVolume(r)     { return this._rows[r] ? this._rows[r].volume : 1; }
+  setRowVolume(r, v)  { if (this._rows[r]) this._rows[r].volume = Math.max(0, Math.min(1, v)); }
+
+  /* -- recording -- */
+
   recordNote(midi) {
     if (!this._playing || this._currentStep < 0) return;
+    const r = this._recRow;
     const s = this._currentStep;
-    this._notes[s] = Math.max(0, Math.min(127, midi));
-    this._gates[s] = 1;
-    if (this._onRecordStep) this._onRecordStep(s);
+    const row = this._rows[r];
+    if (!row) return;
+    row.notes[s] = Math.max(0, Math.min(127, midi));
+    row.gates[s] = 1;
+    if (this._onRecordStep) this._onRecordStep(r, s);
   }
 
   setBPM(bpm) { this._bpm = Math.max(40, Math.min(300, bpm)); }
   setSwing(amount) { this._swing = Math.max(0, Math.min(0.7, amount)); }
 
-  /* -- step data -- */
+  /* -- step data (row-aware) -- */
 
-  getStepNote(i)  { return this._notes[i]; }
-  getStepGate(i)  { return this._gates[i]; }
-  getStepVel(i)   { return this._vels[i]; }
-  getStepGlide(i) { return this._glides[i]; }
+  getStepNote(r, i)  { return this._rows[r] ? this._rows[r].notes[i]  : DEFAULT_NOTE; }
+  getStepGate(r, i)  { return this._rows[r] ? this._rows[r].gates[i]  : 0; }
+  getStepVel(r, i)   { return this._rows[r] ? this._rows[r].vels[i]   : 1; }
+  getStepGlide(r, i) { return this._rows[r] ? this._rows[r].glides[i] : 0; }
 
-  setStepNote(i, midi) { this._notes[i] = Math.max(0, Math.min(127, midi)); }
-  setStepVel(i, v) { this._vels[i] = Math.max(0, Math.min(1, v)); }
-  setStepGlide(i, on) { this._glides[i] = on ? 1 : 0; }
+  setStepNote(r, i, midi) { if (this._rows[r]) this._rows[r].notes[i] = Math.max(0, Math.min(127, midi)); }
+  setStepVel(r, i, v)     { if (this._rows[r]) this._rows[r].vels[i] = Math.max(0, Math.min(1, v)); }
+  setStepGlide(r, i, on)  { if (this._rows[r]) this._rows[r].glides[i] = on ? 1 : 0; }
 
-  toggleGate(i) {
-    this._gates[i] = this._gates[i] ? 0 : 1;
-    return this._gates[i];
+  toggleGate(r, i) {
+    if (!this._rows[r]) return 0;
+    this._rows[r].gates[i] = this._rows[r].gates[i] ? 0 : 1;
+    return this._rows[r].gates[i];
   }
 
-  setGate(i, on) {
-    this._gates[i] = on ? 1 : 0;
-  }
-
-  getPattern() {
-    return {
-      notes: [...this._notes],
-      gates: [...this._gates],
-      vels: [...this._vels],
-      glides: [...this._glides],
-    };
+  setGate(r, i, on) {
+    if (this._rows[r]) this._rows[r].gates[i] = on ? 1 : 0;
   }
 
   clearPattern() {
-    this._notes.fill(DEFAULT_NOTE);
-    this._gates.fill(0);
-    this._vels.fill(1);
-    this._glides.fill(0);
+    this._rows.forEach(row => {
+      row.notes.fill(DEFAULT_NOTE);
+      row.gates.fill(0);
+      row.vels.fill(1);
+      row.glides.fill(0);
+    });
+  }
+
+  clearRow(r) {
+    const row = this._rows[r];
+    if (!row) return;
+    row.notes.fill(DEFAULT_NOTE);
+    row.gates.fill(0);
+    row.vels.fill(1);
+    row.glides.fill(0);
   }
 
   loadPreset(name) {
     const p = SEQ_PRESETS[name];
     if (!p) return;
-    for (let i = 0; i < NUM_STEPS; i++) {
-      this._notes[i]  = p.notes[i]  !== undefined ? p.notes[i] : DEFAULT_NOTE;
-      this._gates[i]  = p.gates[i]  !== undefined ? p.gates[i] : 0;
-      this._vels[i]   = p.vels[i]   !== undefined ? p.vels[i]  : 1;
-      this._glides[i] = p.glides[i] !== undefined ? p.glides[i] : 0;
+    // Reset to the number of rows in the preset
+    while (this._rows.length > p.rows.length && this._rows.length > 1) {
+      const removed = this._rows.pop();
+      if (removed.lastPlayedMidi != null && this._onNoteOff) {
+        this._onNoteOff(removed.lastPlayedMidi);
+      }
     }
+    while (this._rows.length < p.rows.length) {
+      this._rows.push(makeRow(DEFAULT_NOTE));
+    }
+    p.rows.forEach((pr, r) => {
+      const row = this._rows[r];
+      for (let i = 0; i < NUM_STEPS; i++) {
+        row.notes[i]  = pr.notes[i]  !== undefined ? pr.notes[i]  : DEFAULT_NOTE;
+        row.gates[i]  = pr.gates[i]  !== undefined ? pr.gates[i]  : 0;
+        row.vels[i]   = pr.vels[i]   !== undefined ? pr.vels[i]   : 1;
+        row.glides[i] = pr.glides[i] !== undefined ? pr.glides[i] : 0;
+      }
+      row.muted = false;
+      row.volume = 1.0;
+    });
+    if (this._recRow >= this._rows.length) this._recRow = 0;
   }
 
   getPresetNames() { return SEQ_PRESET_NAMES; }
@@ -191,11 +268,13 @@ export class StepSequencer {
       clearTimeout(this._timerID);
       this._timerID = null;
     }
-    // Release any sounding note
-    if (this._lastPlayedMidi != null && this._onNoteOff) {
-      this._onNoteOff(this._lastPlayedMidi);
-      this._lastPlayedMidi = null;
-    }
+    // Release any sounding notes on all rows
+    this._rows.forEach(row => {
+      if (row.lastPlayedMidi != null && this._onNoteOff) {
+        this._onNoteOff(row.lastPlayedMidi);
+        row.lastPlayedMidi = null;
+      }
+    });
     this._currentStep = -1;
     if (this._onStep) this._onStep(-1);
   }
@@ -231,30 +310,31 @@ export class StepSequencer {
   _playStep(step, time) {
     const delay = Math.max(0, (time - this._getCtx().currentTime) * 1000);
 
-    setTimeout(() => {
-      if (!this._playing && step !== this._currentStep) return;
+    this._rows.forEach((row, r) => {
+      setTimeout(() => {
+        if (!this._playing && step !== this._currentStep) return;
 
-      const gateOn = this._gates[step];
-      const nextStep = (step + 1) % NUM_STEPS;
-      const glide = this._glides[step] && this._gates[nextStep];
+        const gateOn = row.gates[step];
+        const nextStep = (step + 1) % NUM_STEPS;
+        const glide = row.glides[step] && row.gates[nextStep];
 
-      // Release previous note (unless gliding into same note)
-      if (this._lastPlayedMidi != null) {
-        if (!glide || this._notes[step] !== this._lastPlayedMidi) {
-          if (this._onNoteOff) this._onNoteOff(this._lastPlayedMidi);
-          this._lastPlayedMidi = null;
+        // Release previous note (unless gliding into same note)
+        if (row.lastPlayedMidi != null) {
+          if (!glide || row.notes[step] !== row.lastPlayedMidi) {
+            if (this._onNoteOff) this._onNoteOff(row.lastPlayedMidi);
+            row.lastPlayedMidi = null;
+          }
         }
-      }
 
-      if (gateOn) {
-        const midi = this._notes[step];
-        // If gliding and same note, skip re-trigger
-        if (glide && midi === this._lastPlayedMidi) return;
-        this._lastPlayedMidi = midi;
-        if (this._onNoteOn) {
-          this._onNoteOn(midiToFreq(midi), midi, midiToName(midi));
+        if (gateOn && !row.muted) {
+          const midi = row.notes[step];
+          if (glide && midi === row.lastPlayedMidi) return;
+          row.lastPlayedMidi = midi;
+          if (this._onNoteOn) {
+            this._onNoteOn(midiToFreq(midi), midi, midiToName(midi));
+          }
         }
-      }
-    }, delay);
+      }, delay);
+    });
   }
 }

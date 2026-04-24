@@ -315,6 +315,17 @@ function buildDrumGrid() {
     }
     row.appendChild(stepsDiv);
 
+    // Mute button
+    const muteBtn = document.createElement('div');
+    muteBtn.className = 'drum-mute-btn';
+    muteBtn.textContent = 'M';
+    muteBtn.classList.toggle('active', drums.getTrackMuted(track.id));
+    muteBtn.addEventListener('click', () => {
+      const muted = drums.toggleTrackMute(track.id);
+      muteBtn.classList.toggle('active', muted);
+    });
+    row.appendChild(muteBtn);
+
     // Track volume
     const volWrap = document.createElement('div');
     volWrap.className = 'drum-row-vol';
@@ -501,104 +512,21 @@ function buildSeqGrid() {
   if (!grid) return;
   grid.innerHTML = '';
 
-  // Note row
-  const noteRow = document.createElement('div');
-  noteRow.className = 'seq-note-row';
-  const noteLabel = document.createElement('div');
-  noteLabel.className = 'seq-note-row-label';
-  noteLabel.textContent = 'NOTE';
-  noteRow.appendChild(noteLabel);
-
-  const noteSteps = document.createElement('div');
-  noteSteps.className = 'seq-note-row-steps';
-
-  for (let s = 0; s < seq.numSteps; s++) {
-    const cell = document.createElement('div');
-    cell.className = 'seq-note-cell';
-    cell.dataset.step = s;
-    const gate = seq.getStepGate(s);
-    const midi = seq.getStepNote(s);
-    cell.classList.toggle('on', !!gate);
-    cell.textContent = gate ? midiToName(midi) : '';
-
-    // Left click: toggle gate on/off
-    cell.addEventListener('click', (e) => {
-      if (e.detail > 1) return; // ignore double-click
-      const on = seq.toggleGate(s);
-      cell.classList.toggle('on', !!on);
-      cell.textContent = on ? midiToName(seq.getStepNote(s)) : '';
-    });
-
-    // Double-click: edit note
-    cell.addEventListener('dblclick', () => {
-      if (!seq.getStepGate(s)) {
-        seq.setGate(s, true);
-        cell.classList.add('on');
-      }
-      const input = document.createElement('input');
-      input.className = 'seq-note-input';
-      input.type = 'text';
-      input.value = midiToName(seq.getStepNote(s));
-      cell.textContent = '';
-      cell.appendChild(input);
-      input.focus();
-      input.select();
-
-      const commit = () => {
-        const parsed = parseNoteName(input.value);
-        if (parsed !== null) {
-          seq.setStepNote(s, parsed);
-        }
-        if (input.parentNode) {
-          cell.textContent = midiToName(seq.getStepNote(s));
-        }
-      };
-      input.addEventListener('blur', commit);
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-        if (e.key === 'Escape') { input.blur(); }
-      });
-    });
-
-    // Scroll: change note up/down
-    cell.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      if (!seq.getStepGate(s)) return;
-      const dir = e.deltaY < 0 ? 1 : -1;
-      const cur = seq.getStepNote(s);
-      seq.setStepNote(s, cur + dir);
-      cell.textContent = midiToName(seq.getStepNote(s));
-    });
-
-    noteSteps.appendChild(cell);
+  for (let r = 0; r < seq.numRows; r++) {
+    buildSeqRow(grid, r);
   }
-  noteRow.appendChild(noteSteps);
-  grid.appendChild(noteRow);
 
-  // Glide row
-  const glideRow = document.createElement('div');
-  glideRow.className = 'seq-glide-row';
-  const glideLabel = document.createElement('div');
-  glideLabel.className = 'seq-glide-row-label';
-  glideLabel.textContent = 'GLIDE';
-  glideRow.appendChild(glideLabel);
-
-  const glideSteps = document.createElement('div');
-  glideSteps.className = 'seq-glide-row-steps';
-  for (let s = 0; s < seq.numSteps; s++) {
-    const cell = document.createElement('div');
-    cell.className = 'seq-glide-cell';
-    cell.dataset.step = s;
-    cell.classList.toggle('on', !!seq.getStepGlide(s));
-    cell.addEventListener('click', () => {
-      const on = seq.getStepGlide(s) ? 0 : 1;
-      seq.setStepGlide(s, on);
-      cell.classList.toggle('on', !!on);
+  // Add row button
+  if (seq.numRows < seq.maxRows) {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'seq-add-row-btn';
+    addBtn.textContent = '+ ADD ROW';
+    addBtn.addEventListener('click', () => {
+      seq.addRow();
+      buildSeqGrid();
     });
-    glideSteps.appendChild(cell);
+    grid.appendChild(addBtn);
   }
-  glideRow.appendChild(glideSteps);
-  grid.appendChild(glideRow);
 
   // Step highlight callback
   seq.onStep = (stepIdx) => {
@@ -609,28 +537,170 @@ function buildSeqGrid() {
   };
 }
 
+function buildSeqRow(grid, r) {
+  const rowGroup = document.createElement('div');
+  rowGroup.className = 'seq-row-group';
+  rowGroup.dataset.row = r;
+
+  // Note row
+  const noteRow = document.createElement('div');
+  noteRow.className = 'seq-row';
+  if (r === seq.recRow) noteRow.classList.add('rec-target');
+  noteRow.dataset.row = r;
+
+  const label = document.createElement('div');
+  label.className = 'seq-row-label';
+  label.textContent = (r + 1);
+  // Click label to set as record target
+  label.addEventListener('click', () => {
+    seq.setRecRow(r);
+    grid.querySelectorAll('.seq-row').forEach(el => el.classList.remove('rec-target'));
+    grid.querySelectorAll(`.seq-row[data-row="${r}"]`).forEach(el => el.classList.add('rec-target'));
+  });
+  noteRow.appendChild(label);
+
+  const stepsDiv = document.createElement('div');
+  stepsDiv.className = 'seq-row-steps';
+
+  for (let s = 0; s < seq.numSteps; s++) {
+    const cell = document.createElement('div');
+    cell.className = 'seq-note-cell';
+    cell.dataset.row = r;
+    cell.dataset.step = s;
+    const gate = seq.getStepGate(r, s);
+    const midi = seq.getStepNote(r, s);
+    cell.classList.toggle('on', !!gate);
+    cell.textContent = gate ? midiToName(midi) : '';
+
+    cell.addEventListener('click', (e) => {
+      if (e.detail > 1) return;
+      const on = seq.toggleGate(r, s);
+      cell.classList.toggle('on', !!on);
+      cell.textContent = on ? midiToName(seq.getStepNote(r, s)) : '';
+    });
+
+    cell.addEventListener('dblclick', () => {
+      if (!seq.getStepGate(r, s)) {
+        seq.setGate(r, s, true);
+        cell.classList.add('on');
+      }
+      const input = document.createElement('input');
+      input.className = 'seq-note-input';
+      input.type = 'text';
+      input.value = midiToName(seq.getStepNote(r, s));
+      cell.textContent = '';
+      cell.appendChild(input);
+      input.focus();
+      input.select();
+
+      const commit = () => {
+        const parsed = parseNoteName(input.value);
+        if (parsed !== null) seq.setStepNote(r, s, parsed);
+        if (input.parentNode) cell.textContent = midiToName(seq.getStepNote(r, s));
+      };
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.blur(); }
+      });
+    });
+
+    cell.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (!seq.getStepGate(r, s)) return;
+      const dir = e.deltaY < 0 ? 1 : -1;
+      seq.setStepNote(r, s, seq.getStepNote(r, s) + dir);
+      cell.textContent = midiToName(seq.getStepNote(r, s));
+    });
+
+    stepsDiv.appendChild(cell);
+  }
+  noteRow.appendChild(stepsDiv);
+
+  // Mute button
+  const muteBtn = document.createElement('div');
+  muteBtn.className = 'seq-mute-btn';
+  muteBtn.textContent = 'M';
+  muteBtn.classList.toggle('active', seq.getRowMuted(r));
+  muteBtn.addEventListener('click', () => {
+    const muted = seq.toggleRowMute(r);
+    muteBtn.classList.toggle('active', muted);
+  });
+  noteRow.appendChild(muteBtn);
+
+  // Volume slider
+  const volWrap = document.createElement('div');
+  volWrap.className = 'seq-row-vol';
+  const vol = document.createElement('input');
+  vol.type = 'range';
+  vol.min = '0';
+  vol.max = '1';
+  vol.step = '0.01';
+  vol.value = seq.getRowVolume(r);
+  vol.addEventListener('input', () => seq.setRowVolume(r, parseFloat(vol.value)));
+  volWrap.appendChild(vol);
+  noteRow.appendChild(volWrap);
+
+  // Remove button (only if more than 1 row)
+  if (seq.numRows > 1) {
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'seq-remove-btn';
+    removeBtn.textContent = '\u00D7';
+    removeBtn.title = 'Remove row';
+    removeBtn.addEventListener('click', () => {
+      seq.removeRow(r);
+      buildSeqGrid();
+    });
+    noteRow.appendChild(removeBtn);
+  }
+
+  rowGroup.appendChild(noteRow);
+
+  // Glide row
+  const glideRow = document.createElement('div');
+  glideRow.className = 'seq-glide-row';
+  const glideLabel = document.createElement('div');
+  glideLabel.className = 'seq-glide-row-label';
+  glideLabel.textContent = 'GLD';
+  glideRow.appendChild(glideLabel);
+
+  const glideSteps = document.createElement('div');
+  glideSteps.className = 'seq-glide-row-steps';
+  for (let s = 0; s < seq.numSteps; s++) {
+    const cell = document.createElement('div');
+    cell.className = 'seq-glide-cell';
+    cell.dataset.row = r;
+    cell.dataset.step = s;
+    cell.classList.toggle('on', !!seq.getStepGlide(r, s));
+    cell.addEventListener('click', () => {
+      const on = seq.getStepGlide(r, s) ? 0 : 1;
+      seq.setStepGlide(r, s, on);
+      cell.classList.toggle('on', !!on);
+    });
+    glideSteps.appendChild(cell);
+  }
+  glideRow.appendChild(glideSteps);
+
+  // Spacer to align with mute+vol+remove
+  const spacer = document.createElement('div');
+  spacer.className = 'seq-glide-spacer';
+  glideRow.appendChild(spacer);
+
+  rowGroup.appendChild(glideRow);
+  grid.appendChild(rowGroup);
+}
+
 function refreshSeqGrid() {
   const grid = document.getElementById('seq-grid');
   if (!grid) return;
-  for (let s = 0; s < seq.numSteps; s++) {
-    const cell = grid.querySelector(`.seq-note-cell[data-step="${s}"]`);
-    if (cell) {
-      const gate = seq.getStepGate(s);
-      cell.classList.toggle('on', !!gate);
-      cell.textContent = gate ? midiToName(seq.getStepNote(s)) : '';
-    }
-    const glide = grid.querySelector(`.seq-glide-cell[data-step="${s}"]`);
-    if (glide) {
-      glide.classList.toggle('on', !!seq.getStepGlide(s));
-    }
-  }
+  // Full rebuild since row count may have changed
+  buildSeqGrid();
 }
 
 function parseNoteName(str) {
   str = str.trim().toUpperCase();
   const m = str.match(/^([A-G])(#|B)?(-?\d+)$/);
   if (!m) {
-    // Try as raw MIDI number
     const n = parseInt(str);
     if (!isNaN(n) && n >= 0 && n <= 127) return n;
     return null;
@@ -676,7 +746,6 @@ function bindSeqControls() {
       const on = !seq.recording;
       seq.setRecording(on);
       recBtn.classList.toggle('active', on);
-      // Auto-start playback if not already playing
       if (on && !seq.playing && playBtn) {
         if (drums.playing) {
           const s = drums.getScheduleState();
@@ -691,13 +760,13 @@ function bindSeqControls() {
   }
 
   // Refresh grid cell when a note is recorded
-  seq.onRecordStep = (stepIdx) => {
+  seq.onRecordStep = (rowIdx, stepIdx) => {
     const grid = document.getElementById('seq-grid');
     if (!grid) return;
-    const cell = grid.querySelector(`.seq-note-cell[data-step="${stepIdx}"]`);
+    const cell = grid.querySelector(`.seq-note-cell[data-row="${rowIdx}"][data-step="${stepIdx}"]`);
     if (cell) {
       cell.classList.add('on');
-      cell.textContent = midiToName(seq.getStepNote(stepIdx));
+      cell.textContent = midiToName(seq.getStepNote(rowIdx, stepIdx));
     }
   };
 

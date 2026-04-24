@@ -414,10 +414,12 @@ export class DrumMachine {
 
     // Per-track state
     this._trackVolumes = {};
+    this._trackMuted = {};
     this._trackParams = {};
     this._pattern = {};
     DRUM_TRACKS.forEach(t => {
       this._trackVolumes[t.id] = 0.8;
+      this._trackMuted[t.id] = false;
       this._trackParams[t.id] = { ...KITS['909'][t.id] };
       this._pattern[t.id] = new Array(NUM_STEPS).fill(0);
     });
@@ -457,6 +459,13 @@ export class DrumMachine {
     this._trackVolumes[trackId] = Math.max(0, Math.min(1, v));
   }
   getTrackVolume(trackId) { return this._trackVolumes[trackId]; }
+
+  setTrackMuted(trackId, muted) { this._trackMuted[trackId] = !!muted; }
+  getTrackMuted(trackId) { return !!this._trackMuted[trackId]; }
+  toggleTrackMute(trackId) {
+    this._trackMuted[trackId] = !this._trackMuted[trackId];
+    return this._trackMuted[trackId];
+  }
 
   /* ── Kit + track params ── */
 
@@ -570,7 +579,7 @@ export class DrumMachine {
     const delay = Math.max(0, (time - this._ctx.currentTime) * 1000);
 
     DRUM_TRACKS.forEach(t => {
-      if (this._pattern[t.id][step]) {
+      if (this._pattern[t.id][step] && !this._trackMuted[t.id]) {
         const fn = SYNTH_FN[t.id];
         if (fn) {
           const params = this._trackParams[t.id];
