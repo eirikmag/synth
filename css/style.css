@@ -442,6 +442,27 @@ body {
   border-color: #5bc0eb;
   color: #0a0a14;
 }
+.arp-sync-btn {
+  padding: 6px 10px;
+  border: 1px solid #2a2a3a;
+  border-radius: 4px;
+  background: #0e0e18;
+  color: #777;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all .1s;
+}
+.arp-sync-btn:hover {
+  border-color: #eb9b34;
+  color: #ccc;
+}
+.arp-sync-btn.active {
+  background: #eb9b34;
+  border-color: #eb9b34;
+  color: #0a0a14;
+}
 
 /* ===== Mode selector ===== */
 .mode-selector {

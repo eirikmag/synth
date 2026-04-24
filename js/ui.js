@@ -605,13 +605,26 @@ export class UIManager {
         this._cb.onArpModeChange(btn.dataset.arpmode);
       });
     });
+
+    const syncBtn = document.getElementById('arp-sync');
+    if (syncBtn) {
+      syncBtn.addEventListener('click', () => {
+        const on = !syncBtn.classList.contains('active');
+        syncBtn.classList.toggle('active', on);
+        if (this._cb.onArpQuantizeChange) this._cb.onArpQuantizeChange(on);
+      });
+    }
   }
 
-  setArpSettings({ division, mode }) {
+  setArpSettings({ division, mode, quantize }) {
     document.querySelectorAll('.arp-div-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.div === division));
     document.querySelectorAll('.arp-mode-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.arpmode === mode));
+    if (quantize !== undefined) {
+      const syncBtn = document.getElementById('arp-sync');
+      if (syncBtn) syncBtn.classList.toggle('active', !!quantize);
+    }
   }
 
   /* --- effects (chorus + reverb) --- */

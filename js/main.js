@@ -61,6 +61,7 @@ function audioNoteOff(midi) {
 const arp = new Arpeggiator({
   onNoteOn: audioNoteOn,
   onNoteOff: audioNoteOff,
+  getAudioContext: () => audio.context,
 });
 
 /* --- Input handlers (keyboard + piano clicks route here) --- */
@@ -175,6 +176,7 @@ const ui = new UIManager({
   onMasterVolumeChange(v) { audio.setMasterVolume(v); },
   onArpDivisionChange(div) { arp.setDivision(div); },
   onArpModeChange(mode) { arp.setMode(mode); },
+  onArpQuantizeChange(on) { arp.setQuantize(on); },
   onChorusEnabledChange(on) { audio.setChorusEnabled(on); },
   onChorusRateChange(hz) { audio.setChorusRate(hz); },
   onChorusDepthChange(ms) { audio.setChorusDepth(ms); },
@@ -577,7 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.setPlayMode(playMode);
   ui.setTempo(arp.getBPM());
   ui.setMasterVolume(audio.getMasterVolume());
-  ui.setArpSettings({ division: arp.getDivision(), mode: arp.getMode() });
+  ui.setArpSettings({ division: arp.getDivision(), mode: arp.getMode(), quantize: arp.getQuantize() });
   ui.setChorusEnabled(audio.getChorusEnabled());
   ui.setChorusRate(audio.getChorusRate());
   ui.setChorusDepth(audio.getChorusDepth());
