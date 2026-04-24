@@ -13,11 +13,6 @@
       <div class="section-label">ARPEGGIATOR</div>
       <div class="arp-controls">
         <div class="knob-group">
-          <label>BPM</label>
-          <input type="range" id="arp-bpm" class="knob-slider" min="20" max="300" step="1" value="120" />
-          <span class="knob-value" id="arp-bpm-value">120</span>
-        </div>
-        <div class="knob-group">
           <label>Division</label>
           <div class="arp-div-selector">
             <button class="arp-div-btn" data-div="1/4">1/4</button>
@@ -34,6 +29,40 @@
             <button class="arp-mode-btn" data-arpmode="random">RND</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== DRUM MACHINE POPUP ===== -->
+  <div class="drum-popup" id="drum-popup">
+    <div class="drum-popup-inner">
+      <div class="drum-header">
+        <div class="section-label">DRUM MACHINE</div>
+        <div class="drum-controls">
+          <button class="drum-ctrl-btn" id="drum-play">PLAY</button>
+          <button class="drum-ctrl-btn" id="drum-clear">CLR</button>
+          <div class="drum-kit-group">
+            <label>KIT</label>
+            <button class="drum-kit-btn active" data-kit="909">909</button>
+            <button class="drum-kit-btn" data-kit="808">808</button>
+            <button class="drum-kit-btn" data-kit="707">707</button>
+            <button class="drum-kit-btn" data-kit="HVY">HVY</button>
+          </div>
+          <div class="drum-preset-group">
+            <label>PTN</label>
+            <button class="drum-preset-btn" data-preset="basic">BASIC</button>
+            <button class="drum-preset-btn" data-preset="house">HOUSE</button>
+            <button class="drum-preset-btn" data-preset="hiphop">HIP</button>
+            <button class="drum-preset-btn" data-preset="electro">ELEC</button>
+          </div>
+          <div class="drum-vol-group">
+            <label>VOL</label>
+            <input type="range" id="drum-master-vol" class="knob-slider" min="0" max="1" step="0.01" value="0.8" />
+          </div>
+        </div>
+      </div>
+      <div class="drum-grid" id="drum-grid">
+        <!-- built by JS -->
       </div>
     </div>
   </div>
@@ -105,6 +134,13 @@
       <div class="panel-top">
         <span class="brand">SYNTH</span>
         <button class="fx-brand-btn" id="fx-btn">FX</button>
+        <button class="fx-brand-btn" id="drum-btn">DRUM</button>
+        <div class="global-tempo">
+          <button class="tempo-btn" id="tempo-down">-</button>
+          <span class="tempo-display" id="tempo-display">120 BPM</span>
+          <button class="tempo-btn" id="tempo-up">+</button>
+          <input type="range" id="tempo-slider" class="tempo-slider" min="20" max="300" step="1" value="120" />
+        </div>
         <div id="note-display" class="note-display">—</div>
       </div>
 

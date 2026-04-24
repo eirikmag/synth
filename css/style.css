@@ -92,6 +92,49 @@ body {
   color: #0a0a14;
 }
 
+/* Global tempo control */
+.global-tempo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+  margin-right: auto;
+}
+.tempo-btn {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #2a2a3a;
+  border-radius: 3px;
+  background: #0e0e18;
+  color: #888;
+  font-size: .7rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all .1s;
+}
+.tempo-btn:hover {
+  border-color: #5bc0eb;
+  color: #ccc;
+}
+.tempo-display {
+  font-size: .65rem;
+  font-weight: 700;
+  color: #5bc0eb;
+  min-width: 60px;
+  text-align: center;
+  letter-spacing: 1px;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+.tempo-slider {
+  width: 80px;
+  height: 4px;
+  accent-color: #5bc0eb;
+}
+
 /* -- sections row -- */
 .panel-sections {
   display: flex;
@@ -374,6 +417,264 @@ body {
 
 .mode-body {
   justify-content: center;
+}
+
+/* ===== Drum Machine popup ===== */
+.drum-popup {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .3s ease, opacity .2s ease;
+  opacity: 0;
+  width: 1100px;
+  max-width: 98vw;
+}
+.drum-popup.open {
+  max-height: 500px;
+  opacity: 1;
+}
+.drum-popup-inner {
+  background: linear-gradient(180deg, #1a1a24 0%, #1e1e2a 100%);
+  border: 1px solid rgba(91,192,235,.2);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  padding: 14px 18px 12px;
+}
+.drum-popup-inner .section-label {
+  margin-bottom: 6px;
+}
+.drum-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.drum-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.drum-ctrl-btn {
+  padding: 5px 10px;
+  border: 1px solid #2a2a3a;
+  border-radius: 4px;
+  background: #0e0e18;
+  color: #888;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .5px;
+  cursor: pointer;
+  transition: all .1s;
+}
+.drum-ctrl-btn:hover {
+  border-color: #5bc0eb;
+  color: #ccc;
+}
+.drum-ctrl-btn.active {
+  background: #5bc0eb;
+  border-color: #5bc0eb;
+  color: #0a0a14;
+}
+.drum-bpm-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.drum-bpm-btn {
+  padding: 5px 8px;
+  min-width: 24px;
+}
+.drum-bpm-display {
+  font-size: .65rem;
+  font-weight: 600;
+  color: #5bc0eb;
+  min-width: 56px;
+  text-align: center;
+  letter-spacing: .5px;
+}
+.drum-preset-group {
+  display: flex;
+  gap: 3px;
+}
+.drum-preset-btn {
+  padding: 5px 8px;
+  border: 1px solid #2a2a3a;
+  border-radius: 4px;
+  background: #0e0e18;
+  color: #666;
+  font-size: .55rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .1s;
+}
+.drum-preset-btn:hover {
+  border-color: #5bc0eb;
+  color: #bbb;
+}
+.drum-vol-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.drum-vol-group label {
+  font-size: .55rem;
+  font-weight: 600;
+  color: #666;
+  letter-spacing: .5px;
+}
+.drum-vol-group .knob-slider {
+  width: 60px;
+}
+
+/* Kit selector */
+.drum-kit-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.drum-kit-group label {
+  font-size: .55rem;
+  font-weight: 600;
+  color: #666;
+  letter-spacing: .5px;
+  margin-right: 2px;
+}
+.drum-preset-group label {
+  font-size: .55rem;
+  font-weight: 600;
+  color: #666;
+  letter-spacing: .5px;
+  margin-right: 2px;
+}
+.drum-kit-btn {
+  padding: 5px 8px;
+  border: 1px solid #2a2a3a;
+  border-radius: 4px;
+  background: #0e0e18;
+  color: #666;
+  font-size: .55rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .1s;
+}
+.drum-kit-btn:hover {
+  border-color: #5bc0eb;
+  color: #bbb;
+}
+.drum-kit-btn.active {
+  background: #5bc0eb;
+  border-color: #5bc0eb;
+  color: #0a0a14;
+}
+
+/* Grid */
+.drum-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.drum-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.drum-row-label {
+  width: 48px;
+  font-size: .55rem;
+  font-weight: 700;
+  letter-spacing: .5px;
+  color: #888;
+  text-align: right;
+  padding-right: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.drum-row-label:hover {
+  color: #5bc0eb;
+}
+.drum-row-steps {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+.drum-step {
+  flex: 1;
+  height: 22px;
+  background: #16161e;
+  border: 1px solid #222230;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background .08s, border-color .08s;
+}
+.drum-step:hover {
+  border-color: #444;
+}
+.drum-step.on {
+  background: #5bc0eb;
+  border-color: #5bc0eb;
+}
+.drum-step.current {
+  border-color: #eb9b34;
+  box-shadow: 0 0 4px rgba(235,155,52,.4);
+}
+/* Beat markers (quarter-note groups) */
+.drum-step:nth-child(4n+1) {
+  border-left: 2px solid #333;
+}
+.drum-row-vol {
+  width: 50px;
+  margin-left: 6px;
+}
+.drum-row-vol input {
+  width: 100%;
+  height: 4px;
+}
+
+/* Track label editing state */
+.drum-row-label.editing {
+  color: #5bc0eb;
+}
+
+/* Inline param editor */
+.drum-param-editor {
+  display: flex;
+  align-items: center;
+  padding: 5px 6px 5px 56px;
+  gap: 14px;
+  background: #12121a;
+  border-bottom: 1px solid #1a1a28;
+}
+.drum-param-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.drum-param-group label {
+  font-size: .45rem;
+  font-weight: 700;
+  color: #555;
+  letter-spacing: .5px;
+}
+.drum-param-group input[type="range"] {
+  width: 56px;
+  height: 4px;
+}
+.drum-param-audition {
+  padding: 3px 8px;
+  border: 1px solid #2a2a3a;
+  border-radius: 3px;
+  background: #0e0e18;
+  color: #666;
+  font-size: .5rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: auto;
+}
+.drum-param-audition:hover {
+  border-color: #5bc0eb;
+  color: #5bc0eb;
 }
 
 /* ===== Effects popup (outside synth, like arp) ===== */

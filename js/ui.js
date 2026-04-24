@@ -14,12 +14,14 @@ export class UIManager {
     this._adsrValues = {};
     this._arpPopup = null;
     this._fxPopup = null;
+    this._drumPopup = null;
   }
 
   init() {
     this._noteDisplay = document.getElementById('note-display');
     this._arpPopup = document.getElementById('arp-popup');
     this._fxPopup = document.getElementById('fx-popup');
+    this._drumPopup = document.getElementById('drum-popup');
     this._currentFilterType = 'lowpass';
     this._currentFilterModel = 'svf12';
 
@@ -32,6 +34,7 @@ export class UIManager {
     this._bindFilter();
     this._bindADSR();
     this._bindPlayMode();
+    this._bindTempo();
     this._bindArpControls();
     this._bindEffects();
     this._bindLFO();
@@ -478,6 +481,17 @@ export class UIManager {
         this._toggleFxPopup(open);
       });
     }
+
+    // Drum Machine popup toggle
+    const drumBtn = document.getElementById('drum-btn');
+    if (drumBtn) {
+      drumBtn.addEventListener('click', () => {
+        const open = !drumBtn.classList.contains('active');
+        drumBtn.classList.toggle('active', open);
+        this._toggleDrumPopup(open);
+        if (this._cb.onDrumToggle) this._cb.onDrumToggle(open);
+      });
+    }
   }
 
   setPlayMode(mode) {
@@ -499,19 +513,53 @@ export class UIManager {
     }
   }
 
+  _toggleDrumPopup(open) {
+    if (this._drumPopup) {
+      this._drumPopup.classList.toggle('open', open);
+    }
+  }
+
+  /* --- global tempo --- */
+
+  _bindTempo() {
+    const slider = document.getElementById('tempo-slider');
+    const display = document.getElementById('tempo-display');
+    const upBtn = document.getElementById('tempo-up');
+    const downBtn = document.getElementById('tempo-down');
+
+    const update = (bpm) => {
+      if (display) display.textContent = bpm + ' BPM';
+      if (slider) slider.value = bpm;
+      if (this._cb.onTempoChange) this._cb.onTempoChange(bpm);
+    };
+
+    if (slider) {
+      slider.addEventListener('input', () => update(parseInt(slider.value)));
+    }
+    if (upBtn) {
+      upBtn.addEventListener('click', () => {
+        const v = Math.min(300, parseInt(slider.value) + 5);
+        update(v);
+      });
+    }
+    if (downBtn) {
+      downBtn.addEventListener('click', () => {
+        const v = Math.max(20, parseInt(slider.value) - 5);
+        update(v);
+      });
+    }
+  }
+
+  setTempo(bpm) {
+    const slider = document.getElementById('tempo-slider');
+    const display = document.getElementById('tempo-display');
+    if (slider) slider.value = bpm;
+    if (display) display.textContent = bpm + ' BPM';
+  }
+
   /* --- arpeggiator controls --- */
 
   _bindArpControls() {
-    const bpmSlider = document.getElementById('arp-bpm');
-    const bpmValue = document.getElementById('arp-bpm-value');
-    if (bpmSlider) {
-      bpmSlider.addEventListener('input', () => {
-        const v = parseInt(bpmSlider.value);
-        bpmValue.textContent = v;
-        this._cb.onArpBPMChange(v);
-      });
-    }
-
     document.querySelectorAll('.arp-div-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.arp-div-btn').forEach(b => b.classList.remove('active'));
@@ -529,11 +577,7 @@ export class UIManager {
     });
   }
 
-  setArpSettings({ bpm, division, mode }) {
-    const bpmSlider = document.getElementById('arp-bpm');
-    const bpmValue = document.getElementById('arp-bpm-value');
-    if (bpmSlider) { bpmSlider.value = bpm; bpmValue.textContent = bpm; }
-
+  setArpSettings({ division, mode }) {
     document.querySelectorAll('.arp-div-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.div === division));
     document.querySelectorAll('.arp-mode-btn').forEach(b =>

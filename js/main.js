@@ -9,9 +9,11 @@ import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
 import { Arpeggiator } from './arpeggiator.js';
 import { LFO } from './lfo.js';
+import { DrumMachine, DRUM_TRACKS, TRACK_PARAM_DEFS, KIT_NAMES } from './drum-machine.js';
 
 const audio = new AudioEngine();
 const lfo = new LFO();
+const drums = new DrumMachine();
 let visualizer = null;
 let playMode = 'mono'; // 'mono' | 'poly' | 'arp'
 
@@ -166,7 +168,10 @@ const ui = new UIManager({
   },
   onADSRChange(params) { audio.setADSR(params); },
   onPlayModeChange(mode) { setPlayMode(mode); },
-  onArpBPMChange(bpm) { arp.setBPM(bpm); },
+  onTempoChange(bpm) {
+    arp.setBPM(bpm);
+    drums.setBPM(bpm);
+  },
   onArpDivisionChange(div) { arp.setDivision(div); },
   onArpModeChange(mode) { arp.setMode(mode); },
   onChorusEnabledChange(on) { audio.setChorusEnabled(on); },
@@ -199,6 +204,9 @@ const ui = new UIManager({
   onOsc3IndexChange(v) { audio.setOsc3Index(v); },
   onOsc3MorphChange(v) { audio.setOsc3Morph(v); },
   onOsc3VibratoChange(v) { audio.setOsc3Vibrato(v); },
+  onDrumToggle(open) {
+    if (open) ensureDrumInit();
+  },
   onNoteOn: noteOn,
   onNoteOff: noteOff,
 });
@@ -238,6 +246,215 @@ function handleMIDIMessage(e) {
     // Note Off
     noteOff(note);
   }
+}
+
+/* --- Drum Machine --- */
+
+let drumInited = false;
+
+function ensureDrumInit() {
+  if (drumInited) return;
+  drumInited = true;
+
+  // Share the synth AudioContext
+  const ctx = audio.context;
+  drums.init(ctx, ctx.destination);
+  buildDrumGrid();
+  bindDrumControls();
+}
+
+let _openEditor = null; // currently open param editor track id
+
+function buildDrumGrid() {
+  const grid = document.getElementById('drum-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  _openEditor = null;
+
+  DRUM_TRACKS.forEach(track => {
+    const row = document.createElement('div');
+    row.className = 'drum-row';
+    row.dataset.trackRow = track.id;
+
+    // Label (click to toggle param editor + audition)
+    const label = document.createElement('div');
+    label.className = 'drum-row-label';
+    label.textContent = track.label;
+    label.addEventListener('click', () => {
+      drums.trigger(track.id);
+      toggleParamEditor(grid, track.id);
+    });
+    row.appendChild(label);
+
+    // Steps
+    const stepsDiv = document.createElement('div');
+    stepsDiv.className = 'drum-row-steps';
+    for (let s = 0; s < drums.numSteps; s++) {
+      const step = document.createElement('div');
+      step.className = 'drum-step';
+      step.dataset.track = track.id;
+      step.dataset.step = s;
+      step.addEventListener('click', () => {
+        const on = drums.toggleStep(track.id, s);
+        step.classList.toggle('on', !!on);
+      });
+      stepsDiv.appendChild(step);
+    }
+    row.appendChild(stepsDiv);
+
+    // Track volume
+    const volWrap = document.createElement('div');
+    volWrap.className = 'drum-row-vol';
+    const vol = document.createElement('input');
+    vol.type = 'range';
+    vol.min = '0';
+    vol.max = '1';
+    vol.step = '0.01';
+    vol.value = drums.getTrackVolume(track.id);
+    vol.addEventListener('input', () => drums.setTrackVolume(track.id, parseFloat(vol.value)));
+    volWrap.appendChild(vol);
+    row.appendChild(volWrap);
+
+    grid.appendChild(row);
+  });
+
+  // Step highlight callback
+  drums.onStep = (stepIdx) => {
+    grid.querySelectorAll('.drum-step').forEach(el => el.classList.remove('current'));
+    if (stepIdx >= 0) {
+      grid.querySelectorAll(`.drum-step[data-step="${stepIdx}"]`).forEach(el => el.classList.add('current'));
+    }
+  };
+}
+
+function toggleParamEditor(grid, trackId) {
+  // Close any existing editor
+  const existing = grid.querySelector('.drum-param-editor');
+  if (existing) {
+    const prevTrack = existing.dataset.track;
+    existing.remove();
+    const prevLabel = grid.querySelector(`.drum-row[data-track-row="${prevTrack}"] .drum-row-label`);
+    if (prevLabel) prevLabel.classList.remove('editing');
+    if (prevTrack === trackId) { _openEditor = null; return; } // toggle off
+  }
+
+  _openEditor = trackId;
+  const row = grid.querySelector(`.drum-row[data-track-row="${trackId}"]`);
+  if (!row) return;
+  row.querySelector('.drum-row-label').classList.add('editing');
+
+  const editor = document.createElement('div');
+  editor.className = 'drum-param-editor';
+  editor.dataset.track = trackId;
+
+  const defs = TRACK_PARAM_DEFS[trackId] || [];
+  const params = drums.getTrackParams(trackId);
+
+  defs.forEach(def => {
+    const grp = document.createElement('div');
+    grp.className = 'drum-param-group';
+    const lbl = document.createElement('label');
+    lbl.textContent = def.label;
+    grp.appendChild(lbl);
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = def.min;
+    slider.max = def.max;
+    slider.step = def.step;
+    slider.value = params[def.id] !== undefined ? params[def.id] : 1;
+    slider.addEventListener('input', () => {
+      drums.setTrackParam(trackId, def.id, parseFloat(slider.value));
+    });
+    grp.appendChild(slider);
+    editor.appendChild(grp);
+  });
+
+  // Audition button
+  const aud = document.createElement('button');
+  aud.className = 'drum-param-audition';
+  aud.textContent = '\u25B6';
+  aud.addEventListener('click', () => drums.trigger(trackId));
+  editor.appendChild(aud);
+
+  // Insert editor right after the row
+  row.after(editor);
+}
+
+function refreshDrumGrid() {
+  const grid = document.getElementById('drum-grid');
+  if (!grid) return;
+  DRUM_TRACKS.forEach(track => {
+    for (let s = 0; s < drums.numSteps; s++) {
+      const el = grid.querySelector(`.drum-step[data-track="${track.id}"][data-step="${s}"]`);
+      if (el) el.classList.toggle('on', !!drums.pattern[track.id][s]);
+    }
+  });
+  // Refresh open param editor if kit changed
+  if (_openEditor) {
+    const existing = grid.querySelector('.drum-param-editor');
+    if (existing) existing.remove();
+    const row = grid.querySelector(`.drum-row[data-track-row="${_openEditor}"]`);
+    if (row) {
+      _openEditor = null;
+      toggleParamEditor(grid, row.dataset.trackRow);
+    }
+  }
+}
+
+function bindDrumControls() {
+  const playBtn = document.getElementById('drum-play');
+  const clearBtn = document.getElementById('drum-clear');
+  const masterVol = document.getElementById('drum-master-vol');
+
+  if (playBtn) {
+    playBtn.addEventListener('click', () => {
+      if (drums.playing) {
+        drums.stop();
+        playBtn.textContent = 'PLAY';
+        playBtn.classList.remove('active');
+      } else {
+        drums.start();
+        playBtn.textContent = 'STOP';
+        playBtn.classList.add('active');
+      }
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      drums.clearPattern();
+      refreshDrumGrid();
+    });
+  }
+
+  if (masterVol) {
+    masterVol.addEventListener('input', () => drums.setMasterVolume(parseFloat(masterVol.value)));
+  }
+
+  document.querySelectorAll('.drum-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      drums.loadPreset(btn.dataset.preset);
+      refreshDrumGrid();
+    });
+  });
+
+  // Kit selector buttons
+  document.querySelectorAll('.drum-kit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.drum-kit-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      drums.loadKit(btn.dataset.kit);
+      // Refresh param editor sliders if one is open
+      const grid = document.getElementById('drum-grid');
+      if (_openEditor && grid) {
+        const existing = grid.querySelector('.drum-param-editor');
+        if (existing) existing.remove();
+        const savedTrack = _openEditor;
+        _openEditor = null;
+        toggleParamEditor(grid, savedTrack);
+      }
+    });
+  });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -357,7 +574,8 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.setFilterGain(audio.getFilterGain());
   ui.setADSR(audio.getADSR());
   ui.setPlayMode(playMode);
-  ui.setArpSettings({ bpm: arp.getBPM(), division: arp.getDivision(), mode: arp.getMode() });
+  ui.setTempo(arp.getBPM());
+  ui.setArpSettings({ division: arp.getDivision(), mode: arp.getMode() });
   ui.setChorusEnabled(audio.getChorusEnabled());
   ui.setChorusRate(audio.getChorusRate());
   ui.setChorusDepth(audio.getChorusDepth());
