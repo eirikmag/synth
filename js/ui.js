@@ -522,39 +522,69 @@ export class UIManager {
   /* --- global tempo --- */
 
   _bindTempo() {
-    const slider = document.getElementById('tempo-slider');
     const display = document.getElementById('tempo-display');
     const upBtn = document.getElementById('tempo-up');
     const downBtn = document.getElementById('tempo-down');
+    this._tempoBpm = 120;
 
     const update = (bpm) => {
+      bpm = Math.max(20, Math.min(300, bpm));
+      this._tempoBpm = bpm;
       if (display) display.textContent = bpm + ' BPM';
-      if (slider) slider.value = bpm;
       if (this._cb.onTempoChange) this._cb.onTempoChange(bpm);
     };
 
-    if (slider) {
-      slider.addEventListener('input', () => update(parseInt(slider.value)));
-    }
     if (upBtn) {
-      upBtn.addEventListener('click', () => {
-        const v = Math.min(300, parseInt(slider.value) + 5);
-        update(v);
-      });
+      upBtn.addEventListener('click', () => update(this._tempoBpm + 5));
     }
     if (downBtn) {
-      downBtn.addEventListener('click', () => {
-        const v = Math.max(20, parseInt(slider.value) - 5);
-        update(v);
+      downBtn.addEventListener('click', () => update(this._tempoBpm - 5));
+    }
+
+    // Click display to type BPM
+    if (display) {
+      display.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'tempo-input';
+        input.min = 20;
+        input.max = 300;
+        input.value = this._tempoBpm;
+        display.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const commit = () => {
+          const v = parseInt(input.value);
+          input.replaceWith(display);
+          if (!isNaN(v)) update(v);
+        };
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+          if (e.key === 'Escape') { input.value = this._tempoBpm; input.blur(); }
+        });
+      });
+    }
+
+    // Master volume
+    const masterVol = document.getElementById('master-vol');
+    if (masterVol) {
+      masterVol.addEventListener('input', () => {
+        if (this._cb.onMasterVolumeChange) this._cb.onMasterVolumeChange(parseFloat(masterVol.value));
       });
     }
   }
 
   setTempo(bpm) {
-    const slider = document.getElementById('tempo-slider');
+    this._tempoBpm = bpm;
     const display = document.getElementById('tempo-display');
-    if (slider) slider.value = bpm;
     if (display) display.textContent = bpm + ' BPM';
+  }
+
+  setMasterVolume(v) {
+    const el = document.getElementById('master-vol');
+    if (el) el.value = v;
   }
 
   /* --- arpeggiator controls --- */

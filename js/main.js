@@ -172,6 +172,7 @@ const ui = new UIManager({
     arp.setBPM(bpm);
     drums.setBPM(bpm);
   },
+  onMasterVolumeChange(v) { audio.setMasterVolume(v); },
   onArpDivisionChange(div) { arp.setDivision(div); },
   onArpModeChange(mode) { arp.setMode(mode); },
   onChorusEnabledChange(on) { audio.setChorusEnabled(on); },
@@ -575,6 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.setADSR(audio.getADSR());
   ui.setPlayMode(playMode);
   ui.setTempo(arp.getBPM());
+  ui.setMasterVolume(audio.getMasterVolume());
   ui.setArpSettings({ division: arp.getDivision(), mode: arp.getMode() });
   ui.setChorusEnabled(audio.getChorusEnabled());
   ui.setChorusRate(audio.getChorusRate());

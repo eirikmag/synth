@@ -128,9 +128,44 @@ body {
   text-align: center;
   letter-spacing: 1px;
   font-family: 'Consolas', 'Courier New', monospace;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 3px;
+  padding: 2px 4px;
 }
-.tempo-slider {
-  width: 80px;
+.tempo-display:hover {
+  background: rgba(91,192,235,.1);
+}
+.tempo-input {
+  width: 48px;
+  background: #0e0e18;
+  border: 1px solid #5bc0eb;
+  border-radius: 3px;
+  color: #5bc0eb;
+  font-size: .65rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 1px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  outline: none;
+  padding: 2px 4px;
+}
+
+/* Master volume */
+.master-vol-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+}
+.master-vol-group label {
+  font-size: .5rem;
+  font-weight: 700;
+  color: #666;
+  letter-spacing: .5px;
+}
+.master-vol-slider {
+  width: 60px;
   height: 4px;
   accent-color: #5bc0eb;
 }

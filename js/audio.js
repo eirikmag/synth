@@ -103,6 +103,9 @@ export class AudioEngine {
     this._sustain  = 0.7;
     this._release  = 0.3;
 
+    // Master volume
+    this._masterVol = 0.8;
+
     // Effects (created lazily in _ensureContext)
     this._chorus = null;
     this._reverb = null;
@@ -114,7 +117,7 @@ export class AudioEngine {
     if (this._ctx) return;
     this._ctx = new (window.AudioContext || window.webkitAudioContext)();
     this._masterGain = this._ctx.createGain();
-    this._masterGain.gain.value = 1;
+    this._masterGain.gain.value = this._masterVol;
     this._analyser = this._ctx.createAnalyser();
     this._analyser.fftSize = 2048;
 
@@ -202,6 +205,14 @@ export class AudioEngine {
   get waveforms() { return WAVEFORMS; }
   get filterTypes() { return FILTER_TYPES; }
   get filterModels() { return FILTER_MODELS; }
+
+  setMasterVolume(v) {
+    this._masterVol = Math.max(0, Math.min(1, v));
+    if (this._masterGain) {
+      this._masterGain.gain.setTargetAtTime(this._masterVol, this._ctx.currentTime, 0.01);
+    }
+  }
+  getMasterVolume() { return this._masterVol; }
 
   _cfg(n) { return n === 2 ? this._osc2 : this._osc1; }
 
