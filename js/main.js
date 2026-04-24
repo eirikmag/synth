@@ -10,10 +10,12 @@ import { Visualizer } from './visualizer.js';
 import { Arpeggiator } from './arpeggiator.js';
 import { LFO } from './lfo.js';
 import { DrumMachine, DRUM_TRACKS, TRACK_PARAM_DEFS, KIT_NAMES } from './drum-machine.js';
+import { StepSequencer } from './sequencer.js';
 
 const audio = new AudioEngine();
 const lfo = new LFO();
 const drums = new DrumMachine();
+const seq = new StepSequencer();
 let visualizer = null;
 let playMode = 'mono'; // 'mono' | 'poly' | 'arp'
 
@@ -172,6 +174,7 @@ const ui = new UIManager({
   onTempoChange(bpm) {
     arp.setBPM(bpm);
     drums.setBPM(bpm);
+    seq.setBPM(bpm);
   },
   onMasterVolumeChange(v) { audio.setMasterVolume(v); },
   onArpDivisionChange(div) { arp.setDivision(div); },
@@ -209,6 +212,9 @@ const ui = new UIManager({
   onOsc3VibratoChange(v) { audio.setOsc3Vibrato(v); },
   onDrumToggle(open) {
     if (open) ensureDrumInit();
+  },
+  onSeqToggle(open) {
+    if (open) ensureSeqInit();
   },
   onNoteOn: noteOn,
   onNoteOff: noteOff,
@@ -416,7 +422,12 @@ function bindDrumControls() {
         playBtn.textContent = 'PLAY';
         playBtn.classList.remove('active');
       } else {
-        drums.start();
+        if (seq.playing) {
+          const s = seq.getScheduleState();
+          drums.startAt(s.nextStepTime, s.currentStep);
+        } else {
+          drums.start();
+        }
         playBtn.textContent = 'STOP';
         playBtn.classList.add('active');
       }
@@ -456,6 +467,209 @@ function bindDrumControls() {
         _openEditor = null;
         toggleParamEditor(grid, savedTrack);
       }
+    });
+  });
+}
+
+/* --- Step Sequencer --- */
+
+let seqInited = false;
+
+function ensureSeqInit() {
+  if (seqInited) return;
+  seqInited = true;
+
+  seq.init(() => audio.context);
+  seq.onNoteOn = audioNoteOn;
+  seq.onNoteOff = audioNoteOff;
+  seq.setBPM(arp.getBPM());
+  buildSeqGrid();
+  bindSeqControls();
+}
+
+function buildSeqGrid() {
+  const grid = document.getElementById('seq-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  // Note row
+  const noteRow = document.createElement('div');
+  noteRow.className = 'seq-note-row';
+  const noteLabel = document.createElement('div');
+  noteLabel.className = 'seq-note-row-label';
+  noteLabel.textContent = 'NOTE';
+  noteRow.appendChild(noteLabel);
+
+  const noteSteps = document.createElement('div');
+  noteSteps.className = 'seq-note-row-steps';
+
+  for (let s = 0; s < seq.numSteps; s++) {
+    const cell = document.createElement('div');
+    cell.className = 'seq-note-cell';
+    cell.dataset.step = s;
+    const gate = seq.getStepGate(s);
+    const midi = seq.getStepNote(s);
+    cell.classList.toggle('on', !!gate);
+    cell.textContent = gate ? midiToName(midi) : '';
+
+    // Left click: toggle gate on/off
+    cell.addEventListener('click', (e) => {
+      if (e.detail > 1) return; // ignore double-click
+      const on = seq.toggleGate(s);
+      cell.classList.toggle('on', !!on);
+      cell.textContent = on ? midiToName(seq.getStepNote(s)) : '';
+    });
+
+    // Double-click: edit note
+    cell.addEventListener('dblclick', () => {
+      if (!seq.getStepGate(s)) {
+        seq.setGate(s, true);
+        cell.classList.add('on');
+      }
+      const input = document.createElement('input');
+      input.className = 'seq-note-input';
+      input.type = 'text';
+      input.value = midiToName(seq.getStepNote(s));
+      cell.textContent = '';
+      cell.appendChild(input);
+      input.focus();
+      input.select();
+
+      const commit = () => {
+        const parsed = parseNoteName(input.value);
+        if (parsed !== null) {
+          seq.setStepNote(s, parsed);
+        }
+        if (input.parentNode) {
+          cell.textContent = midiToName(seq.getStepNote(s));
+        }
+      };
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.blur(); }
+      });
+    });
+
+    // Scroll: change note up/down
+    cell.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (!seq.getStepGate(s)) return;
+      const dir = e.deltaY < 0 ? 1 : -1;
+      const cur = seq.getStepNote(s);
+      seq.setStepNote(s, cur + dir);
+      cell.textContent = midiToName(seq.getStepNote(s));
+    });
+
+    noteSteps.appendChild(cell);
+  }
+  noteRow.appendChild(noteSteps);
+  grid.appendChild(noteRow);
+
+  // Glide row
+  const glideRow = document.createElement('div');
+  glideRow.className = 'seq-glide-row';
+  const glideLabel = document.createElement('div');
+  glideLabel.className = 'seq-glide-row-label';
+  glideLabel.textContent = 'GLIDE';
+  glideRow.appendChild(glideLabel);
+
+  const glideSteps = document.createElement('div');
+  glideSteps.className = 'seq-glide-row-steps';
+  for (let s = 0; s < seq.numSteps; s++) {
+    const cell = document.createElement('div');
+    cell.className = 'seq-glide-cell';
+    cell.dataset.step = s;
+    cell.classList.toggle('on', !!seq.getStepGlide(s));
+    cell.addEventListener('click', () => {
+      const on = seq.getStepGlide(s) ? 0 : 1;
+      seq.setStepGlide(s, on);
+      cell.classList.toggle('on', !!on);
+    });
+    glideSteps.appendChild(cell);
+  }
+  glideRow.appendChild(glideSteps);
+  grid.appendChild(glideRow);
+
+  // Step highlight callback
+  seq.onStep = (stepIdx) => {
+    grid.querySelectorAll('.seq-note-cell').forEach(el => el.classList.remove('current'));
+    if (stepIdx >= 0) {
+      grid.querySelectorAll(`.seq-note-cell[data-step="${stepIdx}"]`).forEach(el => el.classList.add('current'));
+    }
+  };
+}
+
+function refreshSeqGrid() {
+  const grid = document.getElementById('seq-grid');
+  if (!grid) return;
+  for (let s = 0; s < seq.numSteps; s++) {
+    const cell = grid.querySelector(`.seq-note-cell[data-step="${s}"]`);
+    if (cell) {
+      const gate = seq.getStepGate(s);
+      cell.classList.toggle('on', !!gate);
+      cell.textContent = gate ? midiToName(seq.getStepNote(s)) : '';
+    }
+    const glide = grid.querySelector(`.seq-glide-cell[data-step="${s}"]`);
+    if (glide) {
+      glide.classList.toggle('on', !!seq.getStepGlide(s));
+    }
+  }
+}
+
+function parseNoteName(str) {
+  str = str.trim().toUpperCase();
+  const m = str.match(/^([A-G])(#|B)?(-?\d+)$/);
+  if (!m) {
+    // Try as raw MIDI number
+    const n = parseInt(str);
+    if (!isNaN(n) && n >= 0 && n <= 127) return n;
+    return null;
+  }
+  const noteMap = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  let note = noteMap[m[1]];
+  if (note === undefined) return null;
+  if (m[2] === '#') note++;
+  else if (m[2] === 'B' && m[1] !== 'B') note--;
+  const octave = parseInt(m[3]);
+  const midi = (octave + 1) * 12 + note;
+  return (midi >= 0 && midi <= 127) ? midi : null;
+}
+
+function bindSeqControls() {
+  const playBtn = document.getElementById('seq-play');
+  const clearBtn = document.getElementById('seq-clear');
+
+  if (playBtn) {
+    playBtn.addEventListener('click', () => {
+      if (seq.playing) {
+        seq.stop();
+        playBtn.textContent = 'PLAY';
+        playBtn.classList.remove('active');
+      } else {
+        if (drums.playing) {
+          const s = drums.getScheduleState();
+          seq.startAt(s.nextStepTime, s.currentStep);
+        } else {
+          seq.start();
+        }
+        playBtn.textContent = 'STOP';
+        playBtn.classList.add('active');
+      }
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      seq.clearPattern();
+      refreshSeqGrid();
+    });
+  }
+
+  document.querySelectorAll('.seq-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      seq.loadPreset(btn.dataset.seqpreset);
+      refreshSeqGrid();
     });
   });
 }

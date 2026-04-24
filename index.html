@@ -38,6 +38,29 @@
 
   <!-- ===== DRUM MACHINE POPUP ===== -->
   <div class="drum-popup" id="drum-popup">
+
+  <!-- ===== STEP SEQUENCER POPUP ===== -->
+  <div class="seq-popup" id="seq-popup">
+    <div class="seq-popup-inner">
+      <div class="seq-header">
+        <div class="section-label">STEP SEQUENCER</div>
+        <div class="seq-controls">
+          <button class="seq-ctrl-btn" id="seq-play">PLAY</button>
+          <button class="seq-ctrl-btn" id="seq-clear">CLR</button>
+          <div class="seq-preset-group">
+            <label>PTN</label>
+            <button class="seq-preset-btn" data-seqpreset="arpUp">ARP</button>
+            <button class="seq-preset-btn" data-seqpreset="bass1">BASS</button>
+            <button class="seq-preset-btn" data-seqpreset="acid">ACID</button>
+            <button class="seq-preset-btn" data-seqpreset="melody">MEL</button>
+          </div>
+        </div>
+      </div>
+      <div class="seq-grid" id="seq-grid">
+        <!-- built by JS -->
+      </div>
+    </div>
+  </div>
     <div class="drum-popup-inner">
       <div class="drum-header">
         <div class="section-label">DRUM MACHINE</div>
@@ -138,6 +161,7 @@
         <span class="brand">SYNTH</span>
         <button class="fx-brand-btn" id="fx-btn">FX</button>
         <button class="fx-brand-btn" id="drum-btn">DRUM</button>
+        <button class="fx-brand-btn" id="seq-btn">SEQ</button>
         <div class="global-tempo">
           <button class="tempo-btn" id="tempo-down">-</button>
           <span class="tempo-display" id="tempo-display">120 BPM</span>

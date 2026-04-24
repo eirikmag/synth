@@ -520,6 +520,19 @@ export class DrumMachine {
     this._schedule();
   }
 
+  startAt(nextStepTime, currentStep) {
+    if (this._playing) return;
+    if (!this._ctx) return;
+    this._playing = true;
+    this._currentStep = currentStep;
+    this._nextStepTime = nextStepTime;
+    this._schedule();
+  }
+
+  getScheduleState() {
+    return { nextStepTime: this._nextStepTime, currentStep: this._currentStep };
+  }
+
   stop() {
     this._playing = false;
     if (this._timerID !== null) {

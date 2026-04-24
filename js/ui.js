@@ -15,6 +15,7 @@ export class UIManager {
     this._arpPopup = null;
     this._fxPopup = null;
     this._drumPopup = null;
+    this._seqPopup = null;
   }
 
   init() {
@@ -22,6 +23,7 @@ export class UIManager {
     this._arpPopup = document.getElementById('arp-popup');
     this._fxPopup = document.getElementById('fx-popup');
     this._drumPopup = document.getElementById('drum-popup');
+    this._seqPopup = document.getElementById('seq-popup');
     this._currentFilterType = 'lowpass';
     this._currentFilterModel = 'svf12';
 
@@ -492,6 +494,17 @@ export class UIManager {
         if (this._cb.onDrumToggle) this._cb.onDrumToggle(open);
       });
     }
+
+    // Step Sequencer popup toggle
+    const seqBtn = document.getElementById('seq-btn');
+    if (seqBtn) {
+      seqBtn.addEventListener('click', () => {
+        const open = !seqBtn.classList.contains('active');
+        seqBtn.classList.toggle('active', open);
+        this._toggleSeqPopup(open);
+        if (this._cb.onSeqToggle) this._cb.onSeqToggle(open);
+      });
+    }
   }
 
   setPlayMode(mode) {
@@ -516,6 +529,12 @@ export class UIManager {
   _toggleDrumPopup(open) {
     if (this._drumPopup) {
       this._drumPopup.classList.toggle('open', open);
+    }
+  }
+
+  _toggleSeqPopup(open) {
+    if (this._seqPopup) {
+      this._seqPopup.classList.toggle('open', open);
     }
   }
 
