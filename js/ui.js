@@ -20,6 +20,8 @@ export class UIManager {
     this._noteDisplay = document.getElementById('note-display');
     this._arpPopup = document.getElementById('arp-popup');
     this._fxPopup = document.getElementById('fx-popup');
+    this._currentFilterType = 'lowpass';
+    this._currentFilterModel = 'svf12';
 
     this._bindOscWaveforms();
     this._bindOscVolumes();
@@ -168,27 +170,32 @@ export class UIManager {
     return Math.round(hz) + ' Hz';
   }
 
-  /** Which controls are visible per filter type. */
-  _filterParamVisibility(type) {
+  /** Which controls are visible per filter type + model. */
+  _filterParamVisibility(type, model) {
+    if (model === 'cst') {
+      return { q: false, gain: false, model: true, cutoff: false };
+    }
     switch (type) {
       case 'lowshelf':
       case 'highshelf':
-        return { q: true, gain: true, model: false };
+        return { q: true, gain: true, model: false, cutoff: true };
       case 'lowpass':
-        return { q: true, gain: false, model: true };
+        return { q: true, gain: false, model: true, cutoff: true };
       default:            // highpass, bandpass, notch
-        return { q: true, gain: false, model: false };
+        return { q: true, gain: false, model: false, cutoff: true };
     }
   }
 
-  _updateFilterVisibility(type) {
-    const vis = this._filterParamVisibility(type);
+  _updateFilterVisibility(type, model) {
+    const vis = this._filterParamVisibility(type, model);
     const qGroup = document.getElementById('filter-q-group');
     const gainGroup = document.getElementById('filter-gain-group');
     const modelGroup = document.getElementById('filter-model-group');
+    const cutoffGroup = document.querySelector('[data-route-target="filter-cutoff"]');
     if (qGroup) qGroup.classList.toggle('hidden', !vis.q);
     if (gainGroup) gainGroup.classList.toggle('hidden', !vis.gain);
     if (modelGroup) modelGroup.classList.toggle('hidden', !vis.model);
+    if (cutoffGroup) cutoffGroup.classList.toggle('hidden', !vis.cutoff);
   }
 
   _bindFilter() {
@@ -198,7 +205,8 @@ export class UIManager {
       btn.addEventListener('click', () => {
         btns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        this._updateFilterVisibility(btn.dataset.ftype);
+        this._currentFilterType = btn.dataset.ftype;
+        this._updateFilterVisibility(this._currentFilterType, this._currentFilterModel);
         this._cb.onFilterTypeChange(btn.dataset.ftype);
       });
     });
@@ -220,6 +228,8 @@ export class UIManager {
       btn.addEventListener('click', () => {
         modelBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+        this._currentFilterModel = btn.dataset.model;
+        this._updateFilterVisibility(this._currentFilterType, this._currentFilterModel);
         this._cb.onFilterModelChange(btn.dataset.model);
       });
     });
@@ -248,14 +258,17 @@ export class UIManager {
   }
 
   setFilterType(type) {
+    this._currentFilterType = type;
     document.querySelectorAll('.filter-type-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.ftype === type));
-    this._updateFilterVisibility(type);
+    this._updateFilterVisibility(type, this._currentFilterModel);
   }
 
   setFilterModel(model) {
+    this._currentFilterModel = model;
     document.querySelectorAll('.filter-model-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.model === model));
+    this._updateFilterVisibility(this._currentFilterType, model);
   }
 
   setFilterCutoff(value) {

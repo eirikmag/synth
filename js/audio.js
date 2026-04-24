@@ -26,7 +26,26 @@ const FILTER_MODELS = {
   'mg':     { label: 'MG',     stages: 4, qFactors: [0.18, 0.18, 0.18, 1.2] },
   'ob12':   { label: 'OB 12',  stages: 1, qFactors: [1.3] },
   'ob24':   { label: 'OB 24',  stages: 2, qFactors: [0.7, 1.5] },
+  'cst':    { label: 'CST',    stages: 0, qFactors: [] },
 };
+
+/** Number of bands for the CST (custom) filter model. */
+const CST_NUM_BANDS = 24;
+
+/** Build logarithmically-spaced center frequencies for CST bands (25 Hz - 18 kHz). */
+function buildCSTFreqs() {
+  const freqs = new Float32Array(CST_NUM_BANDS);
+  const logMin = Math.log(25);
+  const logMax = Math.log(18000);
+  for (let i = 0; i < CST_NUM_BANDS; i++) {
+    freqs[i] = Math.exp(logMin + (i / (CST_NUM_BANDS - 1)) * (logMax - logMin));
+  }
+  return freqs;
+}
+
+const CST_FREQS = buildCSTFreqs();
+/** Q for ~1/3 octave bandwidth peaking filter. */
+const CST_Q = 2.0;
 
 /** Build a tanh-ish waveshaper curve. amount 0 = bypass, 1 = heavy. */
 function makeShapeCurve(amount, samples = 256) {
@@ -65,6 +84,9 @@ export class AudioEngine {
     this._filterQ      = 0.5;
     this._filterGain   = 0;
     this._refFilters   = null; // array of BiquadFilterNodes for visualisation
+
+    // CST (custom drawn) filter -- per-band gains in dB
+    this._cstGains = new Float32Array(CST_NUM_BANDS); // default 0 dB (flat)
 
     // ADSR
     this._attack  = 0.01;
@@ -105,6 +127,7 @@ export class AudioEngine {
 
   /** How many stages does the current config need? */
   _stageCount() {
+    if (this._filterModel === 'cst') return CST_NUM_BANDS;
     if (this._filterType === 'lowpass' && FILTER_MODELS[this._filterModel]) {
       return FILTER_MODELS[this._filterModel].stages;
     }
@@ -121,6 +144,7 @@ export class AudioEngine {
 
   /** Create an array of BiquadFilterNodes configured for current settings. */
   _makeFilterChain() {
+    if (this._filterModel === 'cst') return this._makeCSTChain();
     const stages = this._stageCount();
     const qFactors = this._qFactors();
     const filters = [];
@@ -145,6 +169,10 @@ export class AudioEngine {
 
   /** Apply current cutoff/Q/gain/type to an array of filter nodes. */
   _applyFilterParams(filters, time) {
+    if (this._filterModel === 'cst') {
+      this._applyCSTParams(filters, time);
+      return;
+    }
     const qFactors = this._qFactors();
     filters.forEach((f, i) => {
       f.type = this._filterType;
@@ -312,6 +340,58 @@ export class AudioEngine {
   getRefFilters() {
     this._ensureContext();
     return this._refFilters;
+  }
+
+  /* --- CST (custom drawn) filter --- */
+
+  /** Create a bank of peaking EQ filters for the CST model. */
+  _makeCSTChain() {
+    const filters = [];
+    for (let i = 0; i < CST_NUM_BANDS; i++) {
+      const f = this._ctx.createBiquadFilter();
+      f.type = 'peaking';
+      f.frequency.value = CST_FREQS[i];
+      f.Q.value = CST_Q;
+      f.gain.value = this._cstGains[i];
+      filters.push(f);
+    }
+    return filters;
+  }
+
+  /** Apply CST gains to existing filter nodes. */
+  _applyCSTParams(filters, time) {
+    for (let i = 0; i < filters.length; i++) {
+      if (time !== undefined) {
+        filters[i].gain.setTargetAtTime(this._cstGains[i] || 0, time, 0.01);
+      } else {
+        filters[i].gain.value = this._cstGains[i] || 0;
+      }
+    }
+  }
+
+  /**
+   * Set the custom filter curve -- array of gain values in dB (length = CST_NUM_BANDS).
+   * Called from the visualizer draw interaction.
+   */
+  setCustomFilterCurve(gains) {
+    for (let i = 0; i < CST_NUM_BANDS; i++) {
+      this._cstGains[i] = gains[i] !== undefined ? Math.max(-24, Math.min(24, gains[i])) : 0;
+    }
+    if (this._filterModel === 'cst') {
+      this._updateAllFilters();
+    }
+  }
+
+  getCustomFilterCurve() {
+    return Array.from(this._cstGains);
+  }
+
+  /** Returns the CST band center frequencies (for visualizer x-axis mapping). */
+  getCSTFreqs() { return CST_FREQS; }
+  getCSTBandCount() { return CST_NUM_BANDS; }
+
+  isCustomFilterActive() {
+    return this._filterType === 'lowpass' && this._filterModel === 'cst';
   }
 
   /* --- ADSR --- */

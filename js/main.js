@@ -22,7 +22,21 @@ function ensureVisualizer() {
   if (visualizer) return;
   const canvas = document.getElementById('oscilloscope');
   visualizer = new Visualizer(canvas, audio.analyser, audio.getRefFilters());
+  visualizer.setOnCSTDraw((gains) => {
+    audio.setCustomFilterCurve(gains);
+  });
   visualizer.start();
+}
+
+function updateVisualizerDrawMode() {
+  if (!visualizer) return;
+  const active = audio.isCustomFilterActive();
+  visualizer.setDrawMode(
+    active,
+    active ? audio.getCSTFreqs() : null,
+    active ? audio.getCSTBandCount() : 0,
+    active ? audio.getCustomFilterCurve() : null
+  );
 }
 
 /* --- Low-level audio note helpers (used by arp too) --- */
@@ -126,11 +140,17 @@ const ui = new UIManager({
   onOctaveChange(oscNum, value) { audio.setOctave(oscNum, value); },
   onFilterTypeChange(type) {
     audio.setFilterType(type);
-    if (visualizer) visualizer.setRefFilters(audio.getRefFilters());
+    if (visualizer) {
+      updateVisualizerDrawMode();
+      visualizer.setRefFilters(audio.getRefFilters());
+    }
   },
   onFilterModelChange(model) {
     audio.setFilterModel(model);
-    if (visualizer) visualizer.setRefFilters(audio.getRefFilters());
+    if (visualizer) {
+      updateVisualizerDrawMode();
+      visualizer.setRefFilters(audio.getRefFilters());
+    }
   },
   onFilterCutoffChange(freq) {
     audio.setFilterCutoff(freq);
