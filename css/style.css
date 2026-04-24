@@ -545,9 +545,20 @@ body {
   cursor: pointer;
 }
 
-/* ===== OLED display (oscilloscope) ===== */
-.display-section {
+/* ===== OLED display + MODE (stacked) ===== */
+.display-mode-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   flex: 0 0 280px;
+}
+
+.display-section {
+  flex: 1;
+}
+
+.mode-section {
+  flex: 0 0 auto;
 }
 
 .oled {
@@ -562,6 +573,13 @@ body {
   display: block;
   width: 100%;
   height: 100px;
+}
+
+.display-mode-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  justify-content: center;
 }
 
 /* ===== Keyboard area ===== */

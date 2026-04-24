@@ -304,11 +304,23 @@
           </div>
         </div>
 
-        <!-- DISPLAY (center OLED) -->
-        <div class="section display-section">
-          <div class="section-label">DISPLAY</div>
-          <div class="oled">
-            <canvas id="oscilloscope"></canvas>
+        <!-- DISPLAY + MODE (stacked) -->
+        <div class="display-mode-stack">
+          <div class="section display-section">
+            <div class="section-label">DISPLAY</div>
+            <div class="oled">
+              <canvas id="oscilloscope"></canvas>
+            </div>
+          </div>
+          <div class="section mode-section">
+            <div class="section-label">MODE</div>
+            <div class="section-body mode-body">
+              <div class="display-mode-row">
+                <button class="mode-btn active" data-mode="mono">MONO</button>
+                <button class="mode-btn" data-mode="poly">POLY</button>
+                <button class="mode-btn" data-mode="arp">ARP</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -368,18 +380,6 @@
           </div>
 
         </div><!-- /env-lfo-stack -->
-
-        <!-- MODE -->
-        <div class="section">
-          <div class="section-label">MODE</div>
-          <div class="section-body mode-body">
-            <div class="mode-selector">
-              <button class="mode-btn active" data-mode="mono">MONO</button>
-              <button class="mode-btn" data-mode="poly">POLY</button>
-              <button class="mode-btn" data-mode="arp">ARP</button>
-            </div>
-          </div>
-        </div>
 
       </div><!-- /panel-sections -->
     </div><!-- /panel -->
