@@ -430,16 +430,22 @@ export class AudioEngine {
   setChorusRate(hz) { this._ensureContext(); this._chorus.setRate(hz); }
   getChorusRate() { return this._chorus ? this._chorus.getState().rate : 1.5; }
 
-  setChorusDepth(pct) {
+  setChorusDepth(ms) {
     this._ensureContext();
-    this._chorus.setDepth(pct / 100 * 0.01);
+    this._chorus.setDepth(ms);
   }
   getChorusDepth() {
-    return this._chorus ? this._chorus.getState().depth / 0.01 * 100 : 20;
+    return this._chorus ? this._chorus.getState().depth : 3.0;
   }
 
   setChorusMix(pct) { this._ensureContext(); this._chorus.setMix(pct / 100); }
   getChorusMix() { return this._chorus ? this._chorus.getState().mix * 100 : 50; }
+
+  setChorusWidth(pct) { this._ensureContext(); this._chorus.setWidth(pct / 100); }
+  getChorusWidth() { return this._chorus ? this._chorus.getState().width * 100 : 50; }
+
+  setChorusHPC(freq) { this._ensureContext(); this._chorus.setHPC(freq); }
+  getChorusHPC() { return this._chorus ? this._chorus.getState().hpc : 200; }
 
   setReverbEnabled(on) { this._ensureContext(); this._reverb.setEnabled(on); }
   getReverbEnabled() { return this._reverb ? this._reverb.getState().enabled : false; }

@@ -9,33 +9,83 @@ export class ChorusEffect {
   constructor(ctx) {
     this._ctx = ctx;
     this._enabled = false;
-    this._rate = 1.5;
-    this._depth = 0.002;
-    this._mix = 0.5;
+    this._rate = 1.5;      // LFO Hz
+    this._depth = 3.0;     // modulation depth in ms
+    this._mix = 0.5;       // wet/dry 0-1
+    this._width = 0.5;     // stereo spread 0-1
+    this._hpc = 200;       // high-pass cutoff on wet signal, Hz
 
     this._input = ctx.createGain();
     this._output = ctx.createGain();
     this._dry = ctx.createGain();
-    this._wet = ctx.createGain();
-    this._delay = ctx.createDelay(0.05);
-    this._lfo = ctx.createOscillator();
-    this._lfoGain = ctx.createGain();
+    this._wetMerge = ctx.createGain();
 
-    this._delay.delayTime.value = 0.012;
-    this._lfo.type = 'sine';
-    this._lfo.frequency.value = this._rate;
-    this._lfoGain.gain.value = this._depth;
+    // Stereo split: two delayed voices panned L/R
+    this._splitter = ctx.createChannelSplitter(2);
+    this._merger = ctx.createChannelMerger(2);
 
-    this._lfo.connect(this._lfoGain);
-    this._lfoGain.connect(this._delay.delayTime);
-    this._lfo.start();
+    // Left voice
+    this._delayL = ctx.createDelay(0.05);
+    this._delayL.delayTime.value = 0.012;
+    this._lfoL = ctx.createOscillator();
+    this._lfoL.type = 'sine';
+    this._lfoL.frequency.value = this._rate;
+    this._lfoGainL = ctx.createGain();
+    this._lfoGainL.gain.value = this._depth / 1000;
+    this._lfoL.connect(this._lfoGainL);
+    this._lfoGainL.connect(this._delayL.delayTime);
+    this._lfoL.start();
+
+    // Right voice — phase-offset LFO for stereo width
+    this._delayR = ctx.createDelay(0.05);
+    this._delayR.delayTime.value = 0.012;
+    this._lfoR = ctx.createOscillator();
+    this._lfoR.type = 'sine';
+    this._lfoR.frequency.value = this._rate;
+    this._lfoGainR = ctx.createGain();
+    this._lfoGainR.gain.value = this._depth / 1000;
+    // Invert the R LFO for stereo spread
+    this._lfoInvert = ctx.createGain();
+    this._lfoInvert.gain.value = -1;
+    this._lfoR.connect(this._lfoInvert);
+    this._lfoInvert.connect(this._lfoGainR);
+    this._lfoGainR.connect(this._delayR.delayTime);
+    this._lfoR.start();
+
+    // Width crossfade gains (mono->stereo blend)
+    this._gainLL = ctx.createGain(); // left delay -> left out
+    this._gainLR = ctx.createGain(); // left delay -> right out
+    this._gainRL = ctx.createGain(); // right delay -> left out
+    this._gainRR = ctx.createGain(); // right delay -> right out
+
+    // High-pass filter on wet signal
+    this._hpf = ctx.createBiquadFilter();
+    this._hpf.type = 'highpass';
+    this._hpf.frequency.value = this._hpc;
+    this._hpf.Q.value = 0.7;
+
+    // Routing: input -> delayL/delayR -> width matrix -> merger -> hpf -> wetMerge
+    this._input.connect(this._delayL);
+    this._input.connect(this._delayR);
+
+    this._delayL.connect(this._gainLL);
+    this._delayL.connect(this._gainLR);
+    this._delayR.connect(this._gainRL);
+    this._delayR.connect(this._gainRR);
+
+    this._gainLL.connect(this._merger, 0, 0);
+    this._gainLR.connect(this._merger, 0, 1);
+    this._gainRL.connect(this._merger, 0, 0);
+    this._gainRR.connect(this._merger, 0, 1);
+
+    this._merger.connect(this._hpf);
+    this._hpf.connect(this._wetMerge);
 
     this._input.connect(this._dry);
-    this._input.connect(this._delay);
-    this._delay.connect(this._wet);
     this._dry.connect(this._output);
-    this._wet.connect(this._output);
+    this._wetMerge.connect(this._output);
 
+    this._updateWidth();
     this._updateMix();
   }
 
@@ -46,12 +96,27 @@ export class ChorusEffect {
 
   setRate(hz) {
     this._rate = Math.max(0.1, Math.min(10, hz));
-    this._lfo.frequency.setTargetAtTime(this._rate, this._ctx.currentTime, 0.01);
+    const t = this._ctx.currentTime;
+    this._lfoL.frequency.setTargetAtTime(this._rate, t, 0.01);
+    this._lfoR.frequency.setTargetAtTime(this._rate, t, 0.01);
   }
 
-  setDepth(value) {
-    this._depth = Math.max(0, Math.min(0.01, value));
-    this._lfoGain.gain.setTargetAtTime(this._depth, this._ctx.currentTime, 0.01);
+  setDepth(ms) {
+    this._depth = Math.max(0, Math.min(10, ms));
+    const t = this._ctx.currentTime;
+    const val = this._depth / 1000;
+    this._lfoGainL.gain.setTargetAtTime(val, t, 0.01);
+    this._lfoGainR.gain.setTargetAtTime(val, t, 0.01);
+  }
+
+  setWidth(value) {
+    this._width = Math.max(0, Math.min(1, value));
+    this._updateWidth();
+  }
+
+  setHPC(freq) {
+    this._hpc = Math.max(20, Math.min(2000, freq));
+    this._hpf.frequency.setTargetAtTime(this._hpc, this._ctx.currentTime, 0.01);
   }
 
   setMix(value) {
@@ -59,19 +124,35 @@ export class ChorusEffect {
     this._updateMix();
   }
 
+  _updateWidth() {
+    // width=0: mono (both delays equal to both channels)
+    // width=1: full stereo (L delay -> L only, R delay -> R only)
+    const t = this._ctx.currentTime;
+    const w = this._width;
+    const same = 0.5 + 0.5 * w;  // same-side gain
+    const cross = 0.5 - 0.5 * w; // cross-side gain
+    this._gainLL.gain.setTargetAtTime(same, t, 0.01);
+    this._gainRR.gain.setTargetAtTime(same, t, 0.01);
+    this._gainLR.gain.setTargetAtTime(cross, t, 0.01);
+    this._gainRL.gain.setTargetAtTime(cross, t, 0.01);
+  }
+
   _updateMix() {
     const t = this._ctx.currentTime;
     if (!this._enabled) {
       this._dry.gain.setTargetAtTime(1, t, 0.01);
-      this._wet.gain.setTargetAtTime(0, t, 0.01);
+      this._wetMerge.gain.setTargetAtTime(0, t, 0.01);
     } else {
       this._dry.gain.setTargetAtTime(1 - this._mix * 0.5, t, 0.01);
-      this._wet.gain.setTargetAtTime(this._mix, t, 0.01);
+      this._wetMerge.gain.setTargetAtTime(this._mix, t, 0.01);
     }
   }
 
   getState() {
-    return { enabled: this._enabled, rate: this._rate, depth: this._depth, mix: this._mix };
+    return {
+      enabled: this._enabled, rate: this._rate, depth: this._depth,
+      mix: this._mix, width: this._width, hpc: this._hpc
+    };
   }
 }
 

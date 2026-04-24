@@ -131,7 +131,9 @@ const ui = new UIManager({
   onArpModeChange(mode) { arp.setMode(mode); },
   onChorusEnabledChange(on) { audio.setChorusEnabled(on); },
   onChorusRateChange(hz) { audio.setChorusRate(hz); },
-  onChorusDepthChange(pct) { audio.setChorusDepth(pct); },
+  onChorusDepthChange(ms) { audio.setChorusDepth(ms); },
+  onChorusWidthChange(pct) { audio.setChorusWidth(pct); },
+  onChorusHPCChange(freq) { audio.setChorusHPC(freq); },
   onChorusMixChange(pct) { audio.setChorusMix(pct); },
   onReverbEnabledChange(on) { audio.setReverbEnabled(on); },
   onReverbDecayChange(seconds) { audio.setReverbDecay(seconds); },
@@ -201,6 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.setChorusEnabled(audio.getChorusEnabled());
   ui.setChorusRate(audio.getChorusRate());
   ui.setChorusDepth(audio.getChorusDepth());
+  ui.setChorusWidth(audio.getChorusWidth());
+  ui.setChorusHPC(audio.getChorusHPC());
   ui.setChorusMix(audio.getChorusMix());
   ui.setReverbEnabled(audio.getReverbEnabled());
   ui.setReverbDecay(audio.getReverbDecay());

@@ -13,11 +13,13 @@ export class UIManager {
     this._adsrSliders = {};
     this._adsrValues = {};
     this._arpPopup = null;
+    this._fxPopup = null;
   }
 
   init() {
     this._noteDisplay = document.getElementById('note-display');
     this._arpPopup = document.getElementById('arp-popup');
+    this._fxPopup = document.getElementById('fx-popup');
 
     this._bindOscWaveforms();
     this._bindOscVolumes();
@@ -323,6 +325,16 @@ export class UIManager {
         this._cb.onPlayModeChange(mode);
       });
     });
+
+    // FX popup toggle (independent of play mode)
+    const fxBtn = document.getElementById('fx-btn');
+    if (fxBtn) {
+      fxBtn.addEventListener('click', () => {
+        const open = !fxBtn.classList.contains('active');
+        fxBtn.classList.toggle('active', open);
+        this._toggleFxPopup(open);
+      });
+    }
   }
 
   setPlayMode(mode) {
@@ -335,6 +347,12 @@ export class UIManager {
   _toggleArpPopup(open) {
     if (this._arpPopup) {
       this._arpPopup.classList.toggle('open', open);
+    }
+  }
+
+  _toggleFxPopup(open) {
+    if (this._fxPopup) {
+      this._fxPopup.classList.toggle('open', open);
     }
   }
 
@@ -405,14 +423,36 @@ export class UIManager {
       });
     }
 
-    // Chorus depth
+    // Chorus depth (ms)
     const chorusDepth = document.getElementById('chorus-depth');
     const chorusDepthVal = document.getElementById('chorus-depth-value');
     if (chorusDepth) {
       chorusDepth.addEventListener('input', () => {
         const v = parseFloat(chorusDepth.value);
-        chorusDepthVal.textContent = Math.round(v) + '%';
+        chorusDepthVal.textContent = v.toFixed(1) + ' ms';
         this._cb.onChorusDepthChange(v);
+      });
+    }
+
+    // Chorus width
+    const chorusWidth = document.getElementById('chorus-width');
+    const chorusWidthVal = document.getElementById('chorus-width-value');
+    if (chorusWidth) {
+      chorusWidth.addEventListener('input', () => {
+        const v = parseFloat(chorusWidth.value);
+        chorusWidthVal.textContent = Math.round(v) + '%';
+        this._cb.onChorusWidthChange(v);
+      });
+    }
+
+    // Chorus HPC
+    const chorusHpc = document.getElementById('chorus-hpc');
+    const chorusHpcVal = document.getElementById('chorus-hpc-value');
+    if (chorusHpc) {
+      chorusHpc.addEventListener('input', () => {
+        const v = parseFloat(chorusHpc.value);
+        chorusHpcVal.textContent = Math.round(v) + ' Hz';
+        this._cb.onChorusHPCChange(v);
       });
     }
 
@@ -478,7 +518,19 @@ export class UIManager {
   setChorusDepth(value) {
     const s = document.getElementById('chorus-depth');
     const d = document.getElementById('chorus-depth-value');
+    if (s) { s.value = value; d.textContent = parseFloat(value).toFixed(1) + ' ms'; }
+  }
+
+  setChorusWidth(value) {
+    const s = document.getElementById('chorus-width');
+    const d = document.getElementById('chorus-width-value');
     if (s) { s.value = value; d.textContent = Math.round(value) + '%'; }
+  }
+
+  setChorusHPC(value) {
+    const s = document.getElementById('chorus-hpc');
+    const d = document.getElementById('chorus-hpc-value');
+    if (s) { s.value = value; d.textContent = Math.round(value) + ' Hz'; }
   }
 
   setChorusMix(value) {
