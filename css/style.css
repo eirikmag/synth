@@ -547,7 +547,7 @@ body {
 
 /* ===== OLED display (oscilloscope) ===== */
 .display-section {
-  flex: 1.4;
+  flex: 0 0 280px;
 }
 
 .oled {
