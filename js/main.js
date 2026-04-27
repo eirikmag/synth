@@ -366,6 +366,59 @@ function setPage(page) {
   buildSeqGrid();
 }
 
+/* ── Track FX slide-out panel ── */
+let _fxPanelTrack = -1;
+
+function openTrackFxPanel(trackIdx) {
+  const panel = document.getElementById('track-fx-panel');
+  const body = document.getElementById('track-fx-body');
+  const title = document.getElementById('track-fx-title');
+  if (!panel || !body) return;
+
+  const info = seq.getTrack(trackIdx);
+  if (!info) return;
+
+  _fxPanelTrack = trackIdx;
+
+  // Update title
+  const label = ENGINE_LABELS[info.sourceType] || info.sourceType.toUpperCase();
+  if (title) title.textContent = `${info.name} — ${label} FX`;
+
+  // Populate body with chain modules
+  body.innerHTML = '';
+  const chain = seq.getTrackChain(trackIdx);
+  body.appendChild(buildChainFilterUI(chain, trackIdx));
+  body.appendChild(buildChainDistortionUI(chain, trackIdx));
+  body.appendChild(buildChainChorusUI(chain, trackIdx));
+  body.appendChild(buildChainReverbUI(chain, trackIdx));
+
+  panel.classList.add('open');
+
+  // Highlight the FX button on the track row
+  const grid = document.getElementById('seq-grid');
+  if (grid) {
+    grid.querySelectorAll('.track-fx-btn').forEach(b => b.classList.remove('active'));
+    const btn = grid.querySelector(`.track-fx-btn[data-track="${trackIdx}"]`);
+    if (btn) btn.classList.add('active');
+  }
+}
+
+function closeTrackFxPanel() {
+  const panel = document.getElementById('track-fx-panel');
+  if (panel) panel.classList.remove('open');
+  _fxPanelTrack = -1;
+  const grid = document.getElementById('seq-grid');
+  if (grid) grid.querySelectorAll('.track-fx-btn').forEach(b => b.classList.remove('active'));
+}
+
+function toggleTrackFxPanel(trackIdx) {
+  if (_fxPanelTrack === trackIdx) {
+    closeTrackFxPanel();
+  } else {
+    openTrackFxPanel(trackIdx);
+  }
+}
+
 /* ── Track Chain module UI builders ── */
 
 function buildChainFilterUI(chain, trackIdx) {
@@ -439,6 +492,7 @@ function buildChainFilterUI(chain, trackIdx) {
   cutSlider.max = 1000;
   const cutoffHz = chain ? chain.getFilterCutoff() : 20000;
   cutSlider.value = Math.round(Math.log(cutoffHz / 20) / Math.log(1000) * 1000);
+  cutSlider.dataset.default = 1000;
   const cutVal = document.createElement('span');
   cutVal.className = 'chain-value';
   cutVal.textContent = Math.round(cutoffHz) + ' Hz';
@@ -463,6 +517,7 @@ function buildChainFilterUI(chain, trackIdx) {
   qSlider.min = 1;
   qSlider.max = 3000;
   qSlider.value = Math.round((chain ? chain.getFilterQ() : 0.5) * 100);
+  qSlider.dataset.default = 50;
   const qVal = document.createElement('span');
   qVal.className = 'chain-value';
   qVal.textContent = (chain ? chain.getFilterQ() : 0.5).toFixed(2);
@@ -487,6 +542,7 @@ function buildChainFilterUI(chain, trackIdx) {
   gainSlider.min = -2400;
   gainSlider.max = 2400;
   gainSlider.value = Math.round((chain ? chain.getFilterGain() : 0) * 100);
+  gainSlider.dataset.default = 0;
   const gainVal = document.createElement('span');
   gainVal.className = 'chain-value';
   gainVal.textContent = (chain ? chain.getFilterGain() : 0).toFixed(1) + ' dB';
@@ -539,6 +595,7 @@ function buildChainChorusUI(chain, trackIdx) {
   rateSlider.min = 10;
   rateSlider.max = 800;
   rateSlider.value = Math.round((chain ? chain.getChorusRate() : 1.5) * 100);
+  rateSlider.dataset.default = 150;
   const rateVal = document.createElement('span');
   rateVal.className = 'chain-value';
   rateVal.textContent = (chain ? chain.getChorusRate() : 1.5).toFixed(2) + ' Hz';
@@ -563,6 +620,7 @@ function buildChainChorusUI(chain, trackIdx) {
   depthSlider.min = 0;
   depthSlider.max = 1000;
   depthSlider.value = Math.round((chain ? chain.getChorusDepth() : 3) * 100);
+  depthSlider.dataset.default = 300;
   const depthVal = document.createElement('span');
   depthVal.className = 'chain-value';
   depthVal.textContent = (chain ? chain.getChorusDepth() : 3).toFixed(1) + ' ms';
@@ -587,6 +645,7 @@ function buildChainChorusUI(chain, trackIdx) {
   mixSlider.min = 0;
   mixSlider.max = 100;
   mixSlider.value = Math.round(chain ? chain.getChorusMix() : 50);
+  mixSlider.dataset.default = 50;
   const mixVal = document.createElement('span');
   mixVal.className = 'chain-value';
   mixVal.textContent = Math.round(chain ? chain.getChorusMix() : 50) + '%';
@@ -638,6 +697,7 @@ function buildChainReverbUI(chain, trackIdx) {
   decaySlider.min = 10;
   decaySlider.max = 1000;
   decaySlider.value = Math.round((chain ? chain.getReverbDecay() : 2) * 100);
+  decaySlider.dataset.default = 200;
   const decayVal = document.createElement('span');
   decayVal.className = 'chain-value';
   decayVal.textContent = (chain ? chain.getReverbDecay() : 2).toFixed(1) + 's';
@@ -662,6 +722,7 @@ function buildChainReverbUI(chain, trackIdx) {
   mixSlider.min = 0;
   mixSlider.max = 100;
   mixSlider.value = Math.round(chain ? chain.getReverbMix() : 30);
+  mixSlider.dataset.default = 30;
   const mixVal = document.createElement('span');
   mixVal.className = 'chain-value';
   mixVal.textContent = Math.round(chain ? chain.getReverbMix() : 30) + '%';
@@ -687,6 +748,104 @@ function buildChainReverbUI(chain, trackIdx) {
   return sec;
 }
 
+function buildChainDistortionUI(chain, trackIdx) {
+  const sec = document.createElement('div');
+  sec.className = 'chain-module';
+
+  const header = document.createElement('div');
+  header.className = 'chain-module-header';
+  const toggle = document.createElement('button');
+  toggle.className = 'chain-module-toggle';
+  toggle.textContent = 'DISTORTION';
+  if (chain && chain.getDistortionEnabled()) toggle.classList.add('active');
+  header.appendChild(toggle);
+  sec.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'chain-module-body';
+  if (!chain || !chain.getDistortionEnabled()) body.classList.add('hidden');
+
+  // Drive
+  const driveRow = document.createElement('div');
+  driveRow.className = 'chain-param-row';
+  const driveLbl = document.createElement('label');
+  driveLbl.textContent = 'Drive';
+  driveRow.appendChild(driveLbl);
+  const driveSlider = document.createElement('input');
+  driveSlider.type = 'range'; driveSlider.min = 10; driveSlider.max = 5000; driveSlider.step = 1;
+  driveSlider.value = chain ? Math.round(chain.getDistortionDrive() * 100) : 400;
+  driveSlider.dataset.default = 400;
+  const driveVal = document.createElement('span');
+  driveVal.className = 'chain-param-value';
+  driveVal.textContent = chain ? chain.getDistortionDrive().toFixed(1) : '4.0';
+  driveSlider.addEventListener('input', () => {
+    if (!chain) return;
+    const v = parseInt(driveSlider.value) / 100;
+    chain.setDistortionDrive(v);
+    driveVal.textContent = v.toFixed(1);
+  });
+  driveRow.appendChild(driveSlider);
+  driveRow.appendChild(driveVal);
+  body.appendChild(driveRow);
+
+  // Tone
+  const toneRow = document.createElement('div');
+  toneRow.className = 'chain-param-row';
+  const toneLbl = document.createElement('label');
+  toneLbl.textContent = 'Tone';
+  toneRow.appendChild(toneLbl);
+  const toneSlider = document.createElement('input');
+  toneSlider.type = 'range'; toneSlider.min = 200; toneSlider.max = 12000; toneSlider.step = 10;
+  toneSlider.value = chain ? chain.getDistortionTone() : 4000;
+  toneSlider.dataset.default = 4000;
+  const toneVal = document.createElement('span');
+  toneVal.className = 'chain-param-value';
+  toneVal.textContent = chain ? Math.round(chain.getDistortionTone()) + ' Hz' : '4000 Hz';
+  toneSlider.addEventListener('input', () => {
+    if (!chain) return;
+    const v = parseInt(toneSlider.value);
+    chain.setDistortionTone(v);
+    toneVal.textContent = v + ' Hz';
+  });
+  toneRow.appendChild(toneSlider);
+  toneRow.appendChild(toneVal);
+  body.appendChild(toneRow);
+
+  // Mix
+  const mixRow = document.createElement('div');
+  mixRow.className = 'chain-param-row';
+  const mixLbl = document.createElement('label');
+  mixLbl.textContent = 'Mix';
+  mixRow.appendChild(mixLbl);
+  const mixSlider = document.createElement('input');
+  mixSlider.type = 'range'; mixSlider.min = 0; mixSlider.max = 100; mixSlider.step = 1;
+  mixSlider.value = chain ? Math.round(chain.getDistortionMix()) : 50;
+  mixSlider.dataset.default = 50;
+  const mixVal = document.createElement('span');
+  mixVal.className = 'chain-param-value';
+  mixVal.textContent = (chain ? Math.round(chain.getDistortionMix()) : 50) + '%';
+  mixSlider.addEventListener('input', () => {
+    if (!chain) return;
+    chain.setDistortionMix(parseInt(mixSlider.value));
+    mixVal.textContent = mixSlider.value + '%';
+  });
+  mixRow.appendChild(mixSlider);
+  mixRow.appendChild(mixVal);
+  body.appendChild(mixRow);
+
+  sec.appendChild(body);
+
+  toggle.addEventListener('click', () => {
+    if (!chain) return;
+    const on = !chain.getDistortionEnabled();
+    chain.setDistortionEnabled(on);
+    toggle.classList.toggle('active', on);
+    body.classList.toggle('hidden', !on);
+  });
+
+  return sec;
+}
+
 /* ── Track selection — populates bottom panel ── */
 
 function selectTrack(trackIdx) {
@@ -702,9 +861,9 @@ function selectTrack(trackIdx) {
   }
 
   activeTrackIdx = trackIdx;
-  console.log('[selectTrack]', trackIdx);
 
   // Monitor this track in the visualizer
+  seq.setMonitorTrack(trackIdx);
 
   // Highlight the selected track row-group
   const grid = document.getElementById('seq-grid');
@@ -827,18 +986,6 @@ function buildTrackParamsPanel(container, trackIdx, info) {
     buildSampleParamsPanel(container, trackIdx, info);
   }
 
-  // Chain modules
-  const chainSection = document.createElement('div');
-  chainSection.className = 'track-params-section';
-  const chainTitle = document.createElement('div');
-  chainTitle.className = 'track-params-section-label';
-  chainTitle.textContent = 'MODULES';
-  chainSection.appendChild(chainTitle);
-  const chain = seq.getTrackChain(trackIdx);
-  chainSection.appendChild(buildChainFilterUI(chain, trackIdx));
-  chainSection.appendChild(buildChainChorusUI(chain, trackIdx));
-  chainSection.appendChild(buildChainReverbUI(chain, trackIdx));
-  container.appendChild(chainSection);
 }
 
 function buildDrumParamsPanel(container, trackIdx, info) {
@@ -942,6 +1089,7 @@ function buildDrumSliders(container, trackIdx) {
     slider.max = def.max;
     slider.step = def.step;
     slider.value = params[def.id] !== undefined ? params[def.id] : 1;
+    slider.dataset.default = slider.value;
     const val = document.createElement('span');
     val.className = 'param-value';
     val.textContent = parseFloat(slider.value).toFixed(2);
@@ -1007,6 +1155,198 @@ function buildSampleParamsPanel(container, trackIdx, info) {
 }
 
 /* ── Grid building ── */
+
+// Paint-drag state: mousedown on a step → drag across to paint on/off
+let _painting = false;   // currently dragging?
+let _paintMode = null;   // 'on' or 'off' — determined by first cell
+let _paintTrack = -1;    // locked to the track where drag started
+
+// Note-resize drag state
+let _resizing = false;
+let _resizeTrack = -1;
+let _resizeEdge = null;     // 'left' or 'right'
+let _resizeMidi = 60;       // the MIDI note being resized
+let _resizeVel = 1;
+let _resizeOrigStart = -1;  // original note group start step
+let _resizeOrigEnd = -1;    // original note group end step
+let _resizePageOffset = 0;
+
+/** Find the tied note group containing step s on track t.
+ *  Returns { start, end } absolute step indices (inclusive). */
+function _findNoteGroup(t, s) {
+  const note = seq.getStepNote(t, s);
+  let start = s;
+  while (start > 0
+    && seq.getStepGate(t, start - 1)
+    && seq.getStepGlide(t, start - 1)
+    && seq.getStepNote(t, start - 1) === note) {
+    start--;
+  }
+  let end = s;
+  const info = seq.getTrack(t);
+  const ns = info ? info.numSteps : 16;
+  while (end < ns - 1
+    && seq.getStepGlide(t, end)
+    && seq.getStepGate(t, end + 1)
+    && seq.getStepNote(t, end + 1) === note) {
+    end++;
+  }
+  return { start, end };
+}
+
+/** Check if mouse is near left or right edge of a cell (within edgePx). */
+function _getEdge(e, cell, edgePx) {
+  const rect = cell.getBoundingClientRect();
+  if (e.clientX - rect.left < edgePx) return 'left';
+  if (rect.right - e.clientX < edgePx) return 'right';
+  return null;
+}
+
+/** Refresh a single step cell's visual state (gate, note text, opacity, ties). */
+function _refreshCell(t, s, pageOffset) {
+  const grid = document.getElementById('seq-grid');
+  if (!grid) return;
+  const cellIdx = s - pageOffset;
+  if (cellIdx < 0 || cellIdx >= STEPS_PER_PAGE) return;
+  const cell = grid.querySelector(`.track-step[data-track="${t}"][data-cell="${cellIdx}"]`);
+  if (!cell) return;
+  const gate = seq.getStepGate(t, s);
+  cell.classList.toggle('on', !!gate);
+  if (gate) {
+    cell.textContent = midiToName(seq.getStepNote(t, s));
+    cell.style.opacity = 0.3 + seq.getStepVel(t, s) * 0.7;
+  } else {
+    cell.textContent = '';
+    cell.style.opacity = '';
+  }
+  // Also update corresponding glide cell
+  const glideCell = grid.querySelector(`.track-glide-cell[data-track="${t}"][data-step="${s}"]`);
+  if (glideCell) glideCell.classList.toggle('on', !!seq.getStepGlide(t, s));
+}
+
+/** Start a note-resize drag from a cell edge. */
+function _startResize(t, s, edge, pageOffset) {
+  const group = _findNoteGroup(t, s);
+  _resizing = true;
+  _resizeTrack = t;
+  _resizeEdge = edge;
+  _resizeMidi = seq.getStepNote(t, s);
+  _resizeVel = seq.getStepVel(t, s);
+  _resizeOrigStart = group.start;
+  _resizeOrigEnd = group.end;
+  _resizePageOffset = pageOffset;
+}
+
+/** Handle mousemove during resize — extend/shrink note group to target step. */
+function _handleResizeMove(targetStep) {
+  const t = _resizeTrack;
+  const info = seq.getTrack(t);
+  if (!info) return;
+  const ns = info.numSteps;
+  const po = _resizePageOffset;
+
+  // Clamp target
+  targetStep = Math.max(0, Math.min(ns - 1, targetStep));
+
+  // Current group boundaries
+  const cur = _findNoteGroup(t, _resizeEdge === 'left' ? _resizeOrigEnd : _resizeOrigStart);
+  const curStart = cur.start;
+  const curEnd = cur.end;
+
+  if (_resizeEdge === 'right') {
+    // Extend or shrink the right side of the group
+    const newEnd = Math.max(_resizeOrigStart, targetStep); // can't shrink past group start
+    if (newEnd > curEnd) {
+      // Extend right: fill steps from curEnd+1..newEnd
+      for (let i = curEnd + 1; i <= newEnd; i++) {
+        // Only extend into empty steps (don't overwrite other notes)
+        if (seq.getStepGate(t, i) && seq.getStepNote(t, i) !== _resizeMidi) break;
+        seq.setGate(t, i, true);
+        seq.setStepNote(t, i, _resizeMidi);
+        seq.setStepVel(t, i, _resizeVel);
+        if (i > 0) seq.setStepGlide(t, i - 1, true);
+        _refreshCell(t, i, po);
+      }
+    } else if (newEnd < curEnd) {
+      // Shrink right: remove steps from curEnd..newEnd+1
+      for (let i = curEnd; i > newEnd; i--) {
+        seq.setGate(t, i, false);
+        seq.setStepGlide(t, i, false);
+        _refreshCell(t, i, po);
+      }
+      // The new last step should not glide
+      seq.setStepGlide(t, newEnd, false);
+    }
+    // Ensure the step before the group end has glide
+    if (newEnd > _resizeOrigStart) {
+      for (let i = _resizeOrigStart; i < newEnd; i++) {
+        seq.setStepGlide(t, i, true);
+      }
+    }
+  } else {
+    // Extend or shrink the left side of the group
+    const newStart = Math.min(_resizeOrigEnd, targetStep); // can't shrink past group end
+    if (newStart < curStart) {
+      // Extend left: fill steps from newStart..curStart-1
+      for (let i = curStart - 1; i >= newStart; i--) {
+        if (seq.getStepGate(t, i) && seq.getStepNote(t, i) !== _resizeMidi) break;
+        seq.setGate(t, i, true);
+        seq.setStepNote(t, i, _resizeMidi);
+        seq.setStepVel(t, i, _resizeVel);
+        seq.setStepGlide(t, i, true);
+        _refreshCell(t, i, po);
+      }
+    } else if (newStart > curStart) {
+      // Shrink left: remove steps from curStart..newStart-1
+      for (let i = curStart; i < newStart; i++) {
+        seq.setGate(t, i, false);
+        seq.setStepGlide(t, i, false);
+        _refreshCell(t, i, po);
+      }
+    }
+    // Ensure glides within the group
+    const finalEnd = _resizeOrigEnd;
+    for (let i = newStart; i < finalEnd; i++) {
+      if (seq.getStepGate(t, i) && seq.getStepNote(t, i) === _resizeMidi) {
+        seq.setStepGlide(t, i, true);
+      }
+    }
+    // Last step of group should not glide (unless it already tied to something after)
+    seq.setStepGlide(t, finalEnd, false);
+  }
+  applySeqTieClasses(t, po);
+}
+
+function _applyPaint(cell, t, s, isSynth, pageOffset) {
+  const current = seq.getStepGate(t, s);
+  if (_paintMode === 'on' && !current) {
+    seq.setGate(t, s, true);
+    cell.classList.add('on');
+    if (isSynth) {
+      cell.textContent = midiToName(seq.getStepNote(t, s));
+      cell.style.opacity = 0.3 + seq.getStepVel(t, s) * 0.7;
+      applySeqTieClasses(t, pageOffset);
+    }
+  } else if (_paintMode === 'off' && current) {
+    seq.setGate(t, s, false);
+    cell.classList.remove('on');
+    if (isSynth) {
+      cell.textContent = '';
+      cell.style.opacity = '';
+      if (_midiEditStep && _midiEditStep.track === t && _midiEditStep.step === s) _clearMidiEditStep();
+      applySeqTieClasses(t, pageOffset);
+    }
+  }
+}
+
+window.addEventListener('mouseup', () => {
+  _painting = false;
+  _paintMode = null;
+  _paintTrack = -1;
+  _resizing = false;
+  _resizeTrack = -1;
+  _resizeEdge = null;
+});
 
 const LABEL_MAX = 10;
 function truncLabel(name) {
@@ -1233,7 +1573,10 @@ function buildTrackRow(grid, t, pageOffset) {
 
       cell.addEventListener('click', (e) => {
         if (e.detail > 1) return;
+        if (_resizing) return;
         if (activeTrackIdx !== t) { selectTrack(t); return; }
+        // If painting handled it, skip normal click
+        if (_painting) return;
         const gate = seq.getStepGate(t, s);
         if (isSynth && gate) {
           // If this step is already selected for MIDI edit, deselect it
@@ -1245,21 +1588,53 @@ function buildTrackRow(grid, t, pageOffset) {
           _setMidiEditStep(t, s, cell);
           return;
         }
-        const on = seq.toggleGate(t, s);
-        cell.classList.toggle('on', !!on);
-        if (isSynth) {
-          cell.textContent = on ? midiToName(seq.getStepNote(t, s)) : '';
-          if (on) {
-            cell.style.opacity = 0.3 + seq.getStepVel(t, s) * 0.7;
-            // Auto-select the newly activated step for MIDI edit
-            _setMidiEditStep(t, s, cell);
-          } else {
-            cell.style.opacity = '';
-            if (_midiEditStep && _midiEditStep.track === t && _midiEditStep.step === s) _clearMidiEditStep();
-          }
-          applySeqTieClasses(t, pageOffset);
-        }
       });
+
+      // Paint-drag: mousedown starts painting
+      cell.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        if (activeTrackIdx !== t) { selectTrack(t); }
+        const gate = seq.getStepGate(t, s);
+        // Note-resize: detect edge drag on active synth steps
+        if (isSynth && gate) {
+          const edge = _getEdge(e, cell, 7);
+          if (edge) {
+            e.preventDefault();
+            e.stopPropagation();
+            _startResize(t, s, edge, pageOffset);
+            return;
+          }
+          return; // let click handle MIDI edit
+        }
+        e.preventDefault();
+        _painting = true;
+        _paintTrack = t;
+        _paintMode = gate ? 'off' : 'on';
+        _applyPaint(cell, t, s, isSynth, pageOffset);
+      });
+
+      cell.addEventListener('mouseenter', () => {
+        // Resize drag: determine target step from which cell we entered
+        if (_resizing && _resizeTrack === t) {
+          _handleResizeMove(s);
+          return;
+        }
+        if (!_painting || _paintTrack !== t) return;
+        _applyPaint(cell, t, s, isSynth, pageOffset);
+      });
+
+      // Cursor: show resize cursor when hovering near edges of active synth steps
+      if (isSynth) {
+        cell.addEventListener('mousemove', (e) => {
+          if (_resizing || _painting) return;
+          if (!seq.getStepGate(t, s)) { cell.style.cursor = ''; return; }
+          const edge = _getEdge(e, cell, 7);
+          cell.style.cursor = edge ? 'ew-resize' : '';
+        });
+        cell.addEventListener('mouseleave', () => {
+          if (!_resizing) cell.style.cursor = '';
+        });
+      }
 
       // Double-click to delete a step (all track types)
       cell.addEventListener('dblclick', () => {
@@ -1328,6 +1703,7 @@ function buildTrackRow(grid, t, pageOffset) {
   vol.max = '1';
   vol.step = '0.01';
   vol.value = seq.getTrackVolume(t);
+  vol.dataset.default = '1';
   vol.addEventListener('input', () => seq.setTrackVolume(t, parseFloat(vol.value)));
   volWrap.appendChild(vol);
   row.appendChild(volWrap);
@@ -1361,6 +1737,18 @@ function buildTrackRow(grid, t, pageOffset) {
     }
   });
   row.appendChild(clearBtn);
+
+  // FX button — opens the track effects slide-out panel
+  const fxBtn = document.createElement('div');
+  fxBtn.className = 'track-fx-btn';
+  fxBtn.dataset.track = t;
+  fxBtn.textContent = 'FX';
+  if (_fxPanelTrack === t) fxBtn.classList.add('active');
+  fxBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleTrackFxPanel(t);
+  });
+  row.appendChild(fxBtn);
 
   rowGroup.appendChild(row);
 
@@ -1458,10 +1846,43 @@ function bindTransportControls() {
   const playBtn = document.getElementById('seq-play');
   const recBtn = document.getElementById('seq-rec');
   const clearBtn = document.getElementById('seq-clear');
+  const metroBtn = document.getElementById('metro-btn');
+  const prerollBtn = document.getElementById('preroll-btn');
+
+  // Metronome toggle
+  if (metroBtn) {
+    metroBtn.addEventListener('click', () => {
+      const on = !seq.metronome;
+      seq.setMetronome(on);
+      metroBtn.classList.toggle('active', on);
+    });
+  }
+
+  // Preroll toggle
+  if (prerollBtn) {
+    prerollBtn.addEventListener('click', () => {
+      const on = !seq.preroll;
+      seq.setPreroll(on);
+      prerollBtn.classList.toggle('active', on);
+    });
+  }
+
+  // Preroll countdown UI
+  seq.onPrerollTick = (remaining, total) => {
+    if (remaining <= 0) {
+      if (playBtn) { playBtn.textContent = '\u25A0 STOP'; playBtn.classList.add('active'); }
+      return;
+    }
+    if (playBtn) {
+      const beat = Math.ceil(remaining / 4);
+      playBtn.textContent = `${beat}...`;
+      playBtn.classList.add('active');
+    }
+  };
 
   if (playBtn) {
     playBtn.addEventListener('click', () => {
-      if (seq.playing) {
+      if (seq.playing || seq.prerolling) {
         seq.stop();
         seq.setRecording(false);
         playBtn.textContent = '\u25B6 PLAY';
@@ -1480,10 +1901,14 @@ function bindTransportControls() {
       const on = !seq.recording;
       seq.setRecording(on);
       recBtn.classList.toggle('active', on);
-      if (on && !seq.playing && playBtn) {
-        seq.start();
-        playBtn.textContent = '\u25A0 STOP';
-        playBtn.classList.add('active');
+      if (on && !seq.playing && !seq.prerolling) {
+        if (seq.preroll) {
+          // Start with preroll countdown, then playback begins automatically
+          seq.startWithPreroll();
+        } else {
+          seq.start();
+        }
+        if (playBtn) { playBtn.textContent = '\u25A0 STOP'; playBtn.classList.add('active'); }
       }
     });
   }
@@ -1494,7 +1919,7 @@ function bindTransportControls() {
     panicBtn.addEventListener('click', () => {
       audio.allNotesOff();
       seq.panic();
-      arp.clear();
+      arp.reset();
       monoHeld.length = 0;
       ui.releaseAllKeys();
       ui.clearNote();
@@ -1631,7 +2056,9 @@ function bindSynthPanel() {
   const arrow = document.getElementById('synth-panel-toggle');
   if (!header || !body) return;
 
-  header.addEventListener('click', () => {
+  header.addEventListener('click', (e) => {
+    // Don't toggle panel when clicking mode buttons or other interactive children
+    if (e.target.closest('.synth-panel-mode')) return;
     const open = body.classList.toggle('open');
     if (arrow) arrow.textContent = open ? '\u25B2' : '\u25BC';
   });
@@ -1830,6 +2257,22 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.init();
   initMIDI();
 
+  // Capture default values on all existing range sliders for dblclick-to-reset
+  document.querySelectorAll('input[type="range"]').forEach(el => {
+    if (!el.dataset.default) el.dataset.default = el.value;
+  });
+
+  // Global dblclick-to-reset for any range slider
+  // Uses data-default if set, otherwise the HTML defaultValue
+  document.addEventListener('dblclick', (e) => {
+    const slider = e.target.closest('input[type="range"]');
+    if (!slider) return;
+    e.preventDefault();
+    const def = slider.dataset.default !== undefined ? slider.dataset.default : slider.defaultValue;
+    slider.value = def;
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
   // Keyboard shortcuts for MIDI step-edit
   window.addEventListener('keydown', (e) => {
     if (!_midiEditStep) return;
@@ -1861,6 +2304,10 @@ document.addEventListener('DOMContentLoaded', () => {
   bindFxPopup();
   bindProjectPopup();
   bindProjectControls();
+
+  // Track FX panel close button
+  const fxCloseBtn = document.getElementById('track-fx-close');
+  if (fxCloseBtn) fxCloseBtn.addEventListener('click', closeTrackFxPanel);
 
   // Register LFO modulation targets
   lfo.setTargets({

@@ -8,7 +8,7 @@
  * with cascaded BiquadFilterNodes and per-stage Q multipliers.
  */
 
-import { ChorusEffect, ReverbEffect } from './effects.js';
+import { ChorusEffect, ReverbEffect, DistortionEffect } from './effects.js';
 
 const FILTER_TYPES = ['lowpass', 'highpass', 'bandpass', 'notch', 'lowshelf', 'highshelf'];
 
@@ -42,11 +42,13 @@ export class TrackChain {
     this._filters = [];        // array of BiquadFilterNodes (cascaded)
     this._filterOutput = ctx.createGain(); // junction node after filter chain
 
-    // Chorus / Reverb
+    // Chorus / Reverb / Distortion
     this._chorusEnabled = false;
     this._reverbEnabled = false;
+    this._distortionEnabled = false;
     this._chorus = new ChorusEffect(ctx);
     this._reverb = new ReverbEffect(ctx);
+    this._distortion = new DistortionEffect(ctx);
 
     // Build initial filter nodes and routing
     this._buildFilterChain();
@@ -91,15 +93,21 @@ export class TrackChain {
     // Disconnect everything from input onward
     try { this._input.disconnect(); } catch {}
     try { this._filterOutput.disconnect(); } catch {}
+    try { this._distortion.output.disconnect(); } catch {}
     try { this._chorus.output.disconnect(); } catch {}
     try { this._reverb.output.disconnect(); } catch {}
 
-    // Build chain: input → [filter?] → [chorus?] → [reverb?] → output
+    // Build chain: input → [filter?] → [distortion?] → [chorus?] → [reverb?] → output
     let current = this._input;
 
     if (this._filterEnabled && this._filters.length > 0) {
       current.connect(this._filters[0]);
       current = this._filterOutput;
+    }
+
+    if (this._distortionEnabled) {
+      current.connect(this._distortion.input);
+      current = this._distortion.output;
     }
 
     if (this._chorusEnabled) {
@@ -222,11 +230,29 @@ export class TrackChain {
   getReverbDecay() { return this._reverb._decay; }
   getReverbMix() { return this._reverb._mix * 100; }
 
+  /* ── Distortion ─────────────────────────────── */
+
+  setDistortionEnabled(on) {
+    this._distortionEnabled = !!on;
+    this._distortion.setEnabled(on);
+    this._rebuildRouting();
+  }
+  getDistortionEnabled() { return this._distortionEnabled; }
+
+  setDistortionDrive(val) { this._distortion.setDrive(val); }
+  setDistortionTone(freq) { this._distortion.setTone(freq); }
+  setDistortionMix(pct) { this._distortion.setMix(pct / 100); }
+
+  getDistortionDrive() { return this._distortion._drive; }
+  getDistortionTone() { return this._distortion._tone; }
+  getDistortionMix() { return this._distortion._mix * 100; }
+
   /* ── Module list (for UI) ─────────────────── */
 
   getActiveModules() {
     const mods = [];
     if (this._filterEnabled) mods.push('filter');
+    if (this._distortionEnabled) mods.push('distortion');
     if (this._chorusEnabled) mods.push('chorus');
     if (this._reverbEnabled) mods.push('reverb');
     return mods;
@@ -257,6 +283,12 @@ export class TrackChain {
         decay: this._reverb._decay,
         mix: this._reverb._mix,
       },
+      distortion: {
+        enabled: this._distortionEnabled,
+        drive: this._distortion._drive,
+        tone: this._distortion._tone,
+        mix: this._distortion._mix,
+      },
     };
   }
 
@@ -286,6 +318,13 @@ export class TrackChain {
       this._reverbEnabled = !!s.reverb.enabled;
       this._reverb.setEnabled(this._reverbEnabled);
     }
+    if (s.distortion) {
+      this._distortion.setDrive(s.distortion.drive !== undefined ? s.distortion.drive : 4);
+      this._distortion.setTone(s.distortion.tone !== undefined ? s.distortion.tone : 4000);
+      this._distortion.setMix(s.distortion.mix !== undefined ? s.distortion.mix : 0.5);
+      this._distortionEnabled = !!s.distortion.enabled;
+      this._distortion.setEnabled(this._distortionEnabled);
+    }
     this._rebuildRouting();
   }
 
@@ -309,6 +348,11 @@ export class TrackChain {
     this._reverb.setEnabled(false);
     this._reverb.setDecay(2);
     this._reverb.setMix(0.3);
+    this._distortionEnabled = false;
+    this._distortion.setEnabled(false);
+    this._distortion.setDrive(4);
+    this._distortion.setTone(4000);
+    this._distortion.setMix(0.5);
     this._rebuildRouting();
   }
 
@@ -317,6 +361,7 @@ export class TrackChain {
     try { this._input.disconnect(); } catch {}
     this._filters.forEach(f => { try { f.disconnect(); } catch {} });
     try { this._filterOutput.disconnect(); } catch {}
+    try { this._distortion.output.disconnect(); } catch {}
     try { this._chorus.output.disconnect(); } catch {}
     try { this._reverb.output.disconnect(); } catch {}
   }

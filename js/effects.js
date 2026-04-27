@@ -222,3 +222,94 @@ export class ReverbEffect {
     return { enabled: this._enabled, decay: this._decay, mix: this._mix };
   }
 }
+
+/**
+ * DistortionEffect — WaveShaper-based distortion with tone control.
+ * Signal: input → preGain → waveshaper → toneFilter → wet / dry → output
+ */
+export class DistortionEffect {
+  constructor(ctx) {
+    this._ctx = ctx;
+    this._enabled = false;
+    this._drive = 4;       // 1–50, distortion intensity
+    this._tone = 4000;     // Hz, post-distortion lowpass
+    this._mix = 0.5;       // 0–1
+
+    this._input = ctx.createGain();
+    this._output = ctx.createGain();
+    this._dry = ctx.createGain();
+    this._wet = ctx.createGain();
+    this._preGain = ctx.createGain();
+    this._shaper = ctx.createWaveShaper();
+    this._shaper.oversample = '4x';
+    this._toneFilter = ctx.createBiquadFilter();
+    this._toneFilter.type = 'lowpass';
+    this._toneFilter.frequency.value = this._tone;
+    this._toneFilter.Q.value = 0.7;
+    this._postGain = ctx.createGain();
+
+    // Routing
+    this._input.connect(this._dry);
+    this._input.connect(this._preGain);
+    this._preGain.connect(this._shaper);
+    this._shaper.connect(this._toneFilter);
+    this._toneFilter.connect(this._postGain);
+    this._postGain.connect(this._wet);
+    this._dry.connect(this._output);
+    this._wet.connect(this._output);
+
+    this._buildCurve();
+    this._updateMix();
+  }
+
+  get input() { return this._input; }
+  get output() { return this._output; }
+
+  _buildCurve() {
+    const k = this._drive;
+    const samples = 8192;
+    const curve = new Float32Array(samples);
+    for (let i = 0; i < samples; i++) {
+      const x = (i * 2) / samples - 1;
+      curve[i] = (Math.PI + k) * x / (Math.PI + k * Math.abs(x));
+    }
+    this._shaper.curve = curve;
+    // Compensate volume boost from drive
+    const t = this._ctx.currentTime;
+    this._preGain.gain.setTargetAtTime(1 + k * 0.1, t, 0.01);
+    this._postGain.gain.setTargetAtTime(1 / (1 + k * 0.08), t, 0.01);
+  }
+
+  setEnabled(on) { this._enabled = on; this._updateMix(); }
+
+  setDrive(value) {
+    this._drive = Math.max(1, Math.min(50, value));
+    this._buildCurve();
+  }
+
+  setTone(freq) {
+    this._tone = Math.max(200, Math.min(12000, freq));
+    const t = this._ctx.currentTime;
+    this._toneFilter.frequency.setTargetAtTime(this._tone, t, 0.01);
+  }
+
+  setMix(value) {
+    this._mix = Math.max(0, Math.min(1, value));
+    this._updateMix();
+  }
+
+  _updateMix() {
+    const t = this._ctx.currentTime;
+    if (!this._enabled) {
+      this._dry.gain.setTargetAtTime(1, t, 0.01);
+      this._wet.gain.setTargetAtTime(0, t, 0.01);
+    } else {
+      this._dry.gain.setTargetAtTime(1 - this._mix * 0.5, t, 0.01);
+      this._wet.gain.setTargetAtTime(this._mix, t, 0.01);
+    }
+  }
+
+  getState() {
+    return { enabled: this._enabled, drive: this._drive, tone: this._tone, mix: this._mix };
+  }
+}

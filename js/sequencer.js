@@ -134,6 +134,14 @@ export class Sequencer {
 
     this._recHeldNotes = new Map();
 
+    // Metronome
+    this._metronome = false;       // enabled?
+    this._metronomeVol = 0.5;
+    this._preroll = false;         // preroll enabled? (1 bar before rec start)
+    this._prerollTicks = 0;        // remaining preroll ticks
+    this._prerolling = false;      // currently in preroll countdown?
+    this._onPrerollTick = null;    // callback(remaining, total) for UI countdown
+
     this._onSynthNoteOn = null;
     this._onSynthNoteOff = null;
     this._onStep = null;
@@ -626,6 +634,83 @@ export class Sequencer {
   setSwing(amount) { this._swing = Math.max(0, Math.min(0.7, amount)); }
   getBPM() { return this._bpm; }
 
+  /* ── Metronome ──────────────────────────────────────────── */
+
+  get metronome() { return this._metronome; }
+  setMetronome(on) { this._metronome = !!on; }
+  setMetronomeVol(v) { this._metronomeVol = Math.max(0, Math.min(1, v)); }
+  get preroll() { return this._preroll; }
+  setPreroll(on) { this._preroll = !!on; }
+  get prerolling() { return this._prerolling; }
+  set onPrerollTick(fn) { this._onPrerollTick = fn; }
+
+  _playClick(time, accent) {
+    const ctx = this._getCtx();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = accent ? 1200 : 800;
+    g.gain.value = this._metronomeVol * (accent ? 1 : 0.5);
+    g.gain.setTargetAtTime(0, time + 0.02, 0.01);
+    osc.connect(g);
+    g.connect(this._masterGain || ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.05);
+  }
+
+  /** Start with preroll: count in 1 bar (16 steps) of metronome before actual play/rec. */
+  startWithPreroll() {
+    if (this._playing || this._prerolling) return;
+    const ctx = this._getCtx && this._getCtx();
+    if (!ctx) return;
+    this._ensureAudio();
+    this._prerolling = true;
+    this._prerollTicks = 0;
+    const totalPrerollSteps = STEPS_PER_PAGE; // 1 bar = 16 sixteenth notes
+    this._nextStepTime = ctx.currentTime + 0.05;
+    this._schedulePreroll(totalPrerollSteps);
+  }
+
+  _schedulePreroll(total) {
+    if (!this._prerolling) return;
+    const ctx = this._getCtx();
+    if (!ctx) return;
+    const lookAhead = 0.1;
+    const interval = 25;
+    while (this._nextStepTime < ctx.currentTime + lookAhead) {
+      if (this._prerollTicks >= total) {
+        // Preroll done — start actual playback
+        this._prerolling = false;
+        this._playing = true;
+        this._globalTick = -1;
+        this._trackSteps.fill(-1);
+        // _nextStepTime carries over seamlessly
+        this._schedule();
+        return;
+      }
+      // Play metronome click during preroll
+      const beatPos = this._prerollTicks % 4;
+      this._playClick(this._nextStepTime, beatPos === 0);
+      if (this._onPrerollTick) {
+        this._onPrerollTick(total - this._prerollTicks, total);
+      }
+      this._prerollTicks++;
+      const base = (60 / this._bpm) / 4;
+      this._nextStepTime += base; // no swing during preroll
+    }
+    this._timerID = setTimeout(() => this._schedulePreroll(total), interval);
+  }
+
+  cancelPreroll() {
+    this._prerolling = false;
+    if (this._timerID !== null) {
+      clearTimeout(this._timerID);
+      this._timerID = null;
+    }
+    if (this._onPrerollTick) this._onPrerollTick(0, 0);
+  }
+
   start() {
     if (this._playing) return;
     const ctx = this._getCtx && this._getCtx();
@@ -639,6 +724,7 @@ export class Sequencer {
 
   stop() {
     this._playing = false;
+    this._prerolling = false;
     if (this._timerID !== null) {
       clearTimeout(this._timerID);
       this._timerID = null;
@@ -696,6 +782,11 @@ export class Sequencer {
         });
       }
       this._playAllTracks(this._nextStepTime);
+      // Metronome click during playback
+      if (this._metronome) {
+        const beatPos = this._globalTick % 4;
+        this._playClick(this._nextStepTime, beatPos === 0);
+      }
       if (this._onStep) this._onStep(this._trackSteps.slice(0, this._tracks.length));
       this._nextStepTime += this._stepDuration(this._globalTick);
     }

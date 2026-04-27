@@ -128,6 +128,10 @@
         <button class="transport-btn transport-rec" id="seq-rec">&#9679; REC</button>
         <button class="transport-btn transport-panic" id="seq-panic" title="Kill all sound">&#9888; PANIC</button>
       </div>
+      <div class="transport-metro-group">
+        <button class="transport-metro-btn" id="metro-btn" title="Metronome">&#119136;</button>
+        <button class="transport-metro-btn" id="preroll-btn" title="1-bar preroll before recording">PRE</button>
+      </div>
       <div class="global-tempo">
         <button class="tempo-btn" id="tempo-down">-</button>
         <span class="tempo-display" id="tempo-display">120 BPM</span>
@@ -173,8 +177,17 @@
           </div>
         </div>
       </div>
-      <div class="seq-grid" id="seq-grid">
-        <!-- built by JS -->
+      <div class="seq-body">
+        <div class="seq-grid" id="seq-grid">
+          <!-- built by JS -->
+        </div>
+        <div class="track-fx-panel" id="track-fx-panel">
+          <div class="track-fx-header">
+            <span class="track-fx-title" id="track-fx-title">FX</span>
+            <button class="track-fx-close" id="track-fx-close">&times;</button>
+          </div>
+          <div class="track-fx-body" id="track-fx-body"></div>
+        </div>
       </div>
     </div>
 

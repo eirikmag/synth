@@ -94,6 +94,40 @@ body {
   color: #fff;
 }
 
+/* Metronome / preroll buttons */
+.transport-metro-group {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+.transport-metro-btn {
+  padding: 3px 8px;
+  border: 1px solid #2a2a3a;
+  border-radius: 4px;
+  background: #0e0e18;
+  color: #555;
+  font-size: .6rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.transport-metro-btn:hover {
+  border-color: #5bc0eb66;
+  color: #aaa;
+}
+.transport-metro-btn.active {
+  background: #eb9b34;
+  color: #111;
+  border-color: #eb9b34;
+}
+.transport-preroll-indicator {
+  color: #eb9b34;
+  font-size: .6rem;
+  font-weight: 700;
+  min-width: 28px;
+  text-align: center;
+}
+
 .transport-util-btn {
   padding: 4px 12px;
   border: 1px solid #2a2a3a;
@@ -1837,6 +1871,12 @@ canvas {
   background: #1a1a28;
   border-radius: 4px;
   padding: 4px 8px;
+}
+.synth-chain-modules {
+  display: flex;
+  gap: 6px;
+  padding: 4px 8px;
+  flex-wrap: wrap;
 }
 .chain-module-header {
   display: flex;
