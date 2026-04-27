@@ -998,12 +998,36 @@ export class UIManager {
       return true;
     });
 
-    unique.forEach(({ key, midi, name }) => {
+    // Separate white and black keys
+    const whites = unique.filter(e => !e.name.includes('#'));
+    const blacks = unique.filter(e => e.name.includes('#'));
+
+    const whiteWidth = 30; // matches CSS
+    const gap = 2;         // matches CSS .piano gap
+
+    // Build white keys first (in flow), track index for black key positioning
+    const whiteByMidi = new Map();
+    whites.forEach(({ key, midi, name }, idx) => {
       const el = document.createElement('div');
-      const isBlack = name.includes('#');
-      el.className = 'piano-key' + (isBlack ? ' black' : ' white');
+      el.className = 'piano-key white';
       el.dataset.midi = midi;
       el.innerHTML = `<span class="key-label">${key.toUpperCase()}</span><span class="note-label">${name}</span>`;
+      container.appendChild(el);
+      whiteByMidi.set(midi, idx);
+    });
+
+    // Add black keys positioned between their white-key neighbors
+    blacks.forEach(({ key, midi, name }) => {
+      const el = document.createElement('div');
+      el.className = 'piano-key black';
+      el.dataset.midi = midi;
+      el.innerHTML = `<span class="key-label">${key.toUpperCase()}</span><span class="note-label">${name}</span>`;
+      // Black key sits between white key at midi-1 and midi+1
+      const whiteIdx = whiteByMidi.get(midi - 1);
+      if (whiteIdx !== undefined) {
+        const left = (whiteIdx + 1) * (whiteWidth + gap) - 10;
+        el.style.left = left + 'px';
+      }
       container.appendChild(el);
     });
 

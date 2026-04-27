@@ -36,13 +36,15 @@ export class LFO {
   getRoutes() { return this._routes.slice(); }
   getTargets() { return this._targets; }
 
-  addRoute(targetId, amount) {
+  addRoute(targetId, amount, bindArg) {
     if (amount === undefined) amount = 50;
     const target = this._targets[targetId];
     if (!target) return;
     if (this._routes.some(r => r.targetId === targetId)) return;
-    this._baseValues[targetId] = target.get();
-    this._routes.push({ targetId, amount });
+    // If target has a bind() factory, create engine-specific get/set
+    const bound = target.bind && bindArg ? target.bind(bindArg) : target;
+    this._baseValues[targetId] = bound.get();
+    this._routes.push({ targetId, amount, get: bound.get, set: bound.set });
     this._startIfNeeded();
     if (this._onRoutesChange) this._onRoutesChange();
   }
@@ -50,9 +52,9 @@ export class LFO {
   removeRoute(targetId) {
     const idx = this._routes.findIndex(r => r.targetId === targetId);
     if (idx === -1) return;
-    const target = this._targets[targetId];
-    if (target && this._baseValues[targetId] !== undefined) {
-      target.set(this._baseValues[targetId]);
+    const route = this._routes[idx];
+    if (route.set && this._baseValues[targetId] !== undefined) {
+      route.set(this._baseValues[targetId]);
     }
     this._routes.splice(idx, 1);
     delete this._baseValues[targetId];
@@ -119,7 +121,7 @@ export class LFO {
 
     for (const route of this._routes) {
       const target = this._targets[route.targetId];
-      if (!target) continue;
+      if (!target || !route.set) continue;
       const base = this._baseValues[route.targetId];
       const amt = route.amount / 100; // normalise to -1..1
       let value;
@@ -131,7 +133,7 @@ export class LFO {
         const range = target.max - target.min;
         value = base + lfoVal * amt * range * 0.5;
       }
-      target.set(Math.max(target.min, Math.min(target.max, value)));
+      route.set(Math.max(target.min, Math.min(target.max, value)));
     }
 
     requestAnimationFrame(t => this._tick(t));

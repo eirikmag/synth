@@ -248,6 +248,16 @@ body {
   background: #16161e;
 }
 
+.seq-body {
+  display: flex;
+  gap: 0;
+  position: relative;
+}
+.seq-body > .seq-grid {
+  flex: 1;
+  min-width: 0;
+}
+
 .seq-toolbar {
   display: flex;
   align-items: center;
@@ -828,7 +838,7 @@ body {
   border-left: 2px solid #333;
 }
 .track-glide-spacer {
-  width: 88px;
+  width: 110px;
   flex-shrink: 0;
 }
 
@@ -1342,14 +1352,36 @@ canvas {
   padding: 10px 18px;
   border-top: 1px solid rgba(255,255,255,.04);
 }
+.keyboard-area.hidden {
+  display: none;
+}
+.keyboard-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0 6px;
+  cursor: pointer;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+}
+.keyboard-toggle:hover {
+  opacity: 0.7;
+}
+.keyboard-toggle.active {
+  opacity: 0.8;
+}
+.keyboard-toggle svg {
+  pointer-events: none;
+}
 .piano {
   display: flex;
-  justify-content: center;
   gap: 2px;
   position: relative;
   height: 80px;
+  width: fit-content;
+  margin: 0 auto;
 }
-.white-key {
+.piano-key.white {
   position: relative;
   width: 30px;
   height: 80px;
@@ -1365,12 +1397,12 @@ canvas {
   transition: background .06s;
   z-index: 1;
 }
-.white-key:hover { background: #f0f0f0; }
-.white-key.active {
+.piano-key.white:hover { background: #f0f0f0; }
+.piano-key.white.active, .piano-key.white.pressed {
   background: linear-gradient(180deg, #5bc0eb 0%, #3aa0d0 100%);
   border-color: #2090c0;
 }
-.black-key {
+.piano-key.black {
   position: absolute;
   width: 20px;
   height: 48px;
@@ -1386,8 +1418,8 @@ canvas {
   padding-bottom: 3px;
   transition: background .06s;
 }
-.black-key:hover { background: #444; }
-.black-key.active {
+.piano-key.black:hover { background: #444; }
+.piano-key.black.active, .piano-key.black.pressed {
   background: linear-gradient(180deg, #3aa0d0 0%, #2090c0 100%);
 }
 .key-label {
@@ -1396,8 +1428,8 @@ canvas {
   color: #888;
   pointer-events: none;
 }
-.white-key .key-label { color: #888; }
-.black-key .key-label { color: #666; }
+.piano-key.white .key-label { color: #888; }
+.piano-key.black .key-label { color: #666; }
 .note-label {
   font-size: .5rem;
   opacity: .4;
@@ -1869,46 +1901,50 @@ canvas {
 }
 .chain-module-section {
   background: #1a1a28;
-  border-radius: 4px;
-  padding: 4px 8px;
+  border-radius: 6px;
+  padding: 8px 12px;
+  border: 1px solid #2a2a3a;
+  transition: border-color 0.2s;
 }
-.synth-chain-modules {
-  display: flex;
-  gap: 6px;
-  padding: 4px 8px;
-  flex-wrap: wrap;
+.chain-module-section:has(.chain-module-toggle.active) {
+  border-color: #3a3a4a;
 }
 .chain-module-header {
   display: flex;
   align-items: center;
+  margin-bottom: 2px;
 }
 .chain-module-toggle {
-  background: #2a2a3a;
-  border: 1px solid #444;
-  color: #888;
-  font-size: 10px;
-  padding: 3px 10px;
+  background: #22222e;
+  border: 1px solid #3a3a4a;
+  color: #666;
+  font-size: 9px;
+  padding: 4px 12px;
   border-radius: 3px;
   cursor: pointer;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  font-weight: 600;
   transition: all 0.15s;
+  width: 100%;
+  text-align: left;
 }
 .chain-module-toggle:hover {
   border-color: #5bc0eb;
   color: #ccc;
 }
 .chain-module-toggle.active {
-  background: #5bc0eb;
+  background: linear-gradient(135deg, #1a8ab5 0%, #5bc0eb 100%);
   color: #111;
   border-color: #5bc0eb;
-  font-weight: 600;
+  font-weight: 700;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.15);
 }
 .chain-module-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px 0 2px;
+  gap: 6px;
+  padding: 8px 0 4px;
 }
 .chain-module-body.hidden {
   display: none;
@@ -1918,11 +1954,14 @@ canvas {
   align-items: center;
   gap: 8px;
 }
-.chain-control-row > span:first-child {
-  font-size: 10px;
-  color: #aaa;
+.chain-control-row > span:first-child,
+.chain-control-row > label:first-child {
+  font-size: 9px;
+  color: #888;
   width: 44px;
   flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 .chain-control-row input[type="range"] {
   flex: 1;
@@ -1932,16 +1971,21 @@ canvas {
 .chain-control-row select {
   background: #22222e;
   color: #ddd;
-  border: 1px solid #444;
+  border: 1px solid #3a3a4a;
   border-radius: 3px;
-  padding: 2px 6px;
+  padding: 3px 6px;
   font-size: 10px;
+  cursor: pointer;
+}
+.chain-control-row select:hover {
+  border-color: #5bc0eb;
 }
 .chain-value {
-  font-size: 10px;
-  color: #888;
+  font-size: 9px;
+  color: #666;
   min-width: 55px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ===== Scrollbar ===== */
@@ -1958,4 +2002,116 @@ canvas {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+/* ===== Track FX Button (in each track row) ===== */
+.track-fx-btn {
+  width: 20px;
+  height: 18px;
+  border: 1px solid #2a2a3a;
+  border-radius: 3px;
+  background: #0e0e18;
+  color: #555;
+  font-size: .4rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 2px;
+  transition: all 0.15s;
+  user-select: none;
+  letter-spacing: 0.3px;
+}
+.track-fx-btn:hover {
+  border-color: #5bc0eb;
+  color: #ccc;
+}
+.track-fx-btn.active {
+  background: #5bc0eb;
+  border-color: #5bc0eb;
+  color: #111;
+  font-weight: 800;
+}
+
+/* ===== Track FX Slide-out Panel ===== */
+.track-fx-panel {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: #13131c;
+  border-left: 2px solid #0e0e14;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.track-fx-panel.open {
+  width: 260px;
+  min-width: 260px;
+  border-left: 2px solid #2a2a3a;
+}
+
+.track-fx-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #1c1c2a 0%, #181824 100%);
+  border-bottom: 1px solid #2a2a3a;
+  flex-shrink: 0;
+}
+.track-fx-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #5bc0eb;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track-fx-close {
+  background: none;
+  border: 1px solid #3a3a4a;
+  color: #666;
+  font-size: 14px;
+  line-height: 1;
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.track-fx-close:hover {
+  border-color: #e03040;
+  color: #e03040;
+  background: rgba(224, 48, 64, 0.1);
+}
+
+.track-fx-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Chain modules inside the FX panel */
+.track-fx-body .chain-module-section {
+  background: #1a1a28;
+  border: 1px solid #2a2a3a;
+}
+.track-fx-body .chain-module-section:has(.chain-module-toggle.active) {
+  border-color: rgba(91, 192, 235, 0.25);
+  box-shadow: 0 0 12px rgba(91, 192, 235, 0.06);
+}
+.track-fx-body .chain-control-row input[type="range"] {
+  height: 3px;
 }

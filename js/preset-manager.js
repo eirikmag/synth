@@ -41,7 +41,7 @@ export class PresetManager {
       lfo.loadState(p.lfo);
       if (p.lfo.routes && Array.isArray(p.lfo.routes)) {
         lfo.getRoutes().forEach(r => lfo.removeRoute(r.targetId));
-        p.lfo.routes.forEach(r => lfo.addRoute(r.targetId, r.amount));
+        p.lfo.routes.forEach(r => lfo.addRoute(r.targetId, r.amount, audioEngine));
       }
     }
     this._currentPatchId = id;

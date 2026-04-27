@@ -246,7 +246,7 @@ const ui = new UIManager({
   onReverbMixChange(pct) { activeEngine.setReverbMix(pct); },
   onLFOWaveformChange(type) { lfo.setWaveform(type); },
   onLFORateChange(hz) { lfo.setRate(hz); },
-  onLFORouteAdd(targetId) { lfo.addRoute(targetId); },
+  onLFORouteAdd(targetId) { lfo.addRoute(targetId, 50, activeEngine); },
   onLFORouteRemove(targetId) { lfo.removeRoute(targetId); },
   onLFORouteAmountChange(targetId, amount) { lfo.setRouteAmount(targetId, amount); },
   onOsc3ModeChange(mode) { activeEngine.setOsc3Mode(mode); },
@@ -750,7 +750,7 @@ function buildChainReverbUI(chain, trackIdx) {
 
 function buildChainDistortionUI(chain, trackIdx) {
   const sec = document.createElement('div');
-  sec.className = 'chain-module';
+  sec.className = 'chain-module-section';
 
   const header = document.createElement('div');
   header.className = 'chain-module-header';
@@ -767,8 +767,8 @@ function buildChainDistortionUI(chain, trackIdx) {
 
   // Drive
   const driveRow = document.createElement('div');
-  driveRow.className = 'chain-param-row';
-  const driveLbl = document.createElement('label');
+  driveRow.className = 'chain-control-row';
+  const driveLbl = document.createElement('span');
   driveLbl.textContent = 'Drive';
   driveRow.appendChild(driveLbl);
   const driveSlider = document.createElement('input');
@@ -776,7 +776,7 @@ function buildChainDistortionUI(chain, trackIdx) {
   driveSlider.value = chain ? Math.round(chain.getDistortionDrive() * 100) : 400;
   driveSlider.dataset.default = 400;
   const driveVal = document.createElement('span');
-  driveVal.className = 'chain-param-value';
+  driveVal.className = 'chain-value';
   driveVal.textContent = chain ? chain.getDistortionDrive().toFixed(1) : '4.0';
   driveSlider.addEventListener('input', () => {
     if (!chain) return;
@@ -790,8 +790,8 @@ function buildChainDistortionUI(chain, trackIdx) {
 
   // Tone
   const toneRow = document.createElement('div');
-  toneRow.className = 'chain-param-row';
-  const toneLbl = document.createElement('label');
+  toneRow.className = 'chain-control-row';
+  const toneLbl = document.createElement('span');
   toneLbl.textContent = 'Tone';
   toneRow.appendChild(toneLbl);
   const toneSlider = document.createElement('input');
@@ -799,7 +799,7 @@ function buildChainDistortionUI(chain, trackIdx) {
   toneSlider.value = chain ? chain.getDistortionTone() : 4000;
   toneSlider.dataset.default = 4000;
   const toneVal = document.createElement('span');
-  toneVal.className = 'chain-param-value';
+  toneVal.className = 'chain-value';
   toneVal.textContent = chain ? Math.round(chain.getDistortionTone()) + ' Hz' : '4000 Hz';
   toneSlider.addEventListener('input', () => {
     if (!chain) return;
@@ -813,8 +813,8 @@ function buildChainDistortionUI(chain, trackIdx) {
 
   // Mix
   const mixRow = document.createElement('div');
-  mixRow.className = 'chain-param-row';
-  const mixLbl = document.createElement('label');
+  mixRow.className = 'chain-control-row';
+  const mixLbl = document.createElement('span');
   mixLbl.textContent = 'Mix';
   mixRow.appendChild(mixLbl);
   const mixSlider = document.createElement('input');
@@ -822,7 +822,7 @@ function buildChainDistortionUI(chain, trackIdx) {
   mixSlider.value = chain ? Math.round(chain.getDistortionMix()) : 50;
   mixSlider.dataset.default = 50;
   const mixVal = document.createElement('span');
-  mixVal.className = 'chain-param-value';
+  mixVal.className = 'chain-value';
   mixVal.textContent = (chain ? Math.round(chain.getDistortionMix()) : 50) + '%';
   mixSlider.addEventListener('input', () => {
     if (!chain) return;
@@ -2062,6 +2062,17 @@ function bindSynthPanel() {
     const open = body.classList.toggle('open');
     if (arrow) arrow.textContent = open ? '\u25B2' : '\u25BC';
   });
+
+  // Keyboard toggle
+  const kbToggle = document.getElementById('keyboard-toggle');
+  const kbArea = document.getElementById('keyboard-area');
+  if (kbToggle && kbArea) {
+    kbToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const show = kbArea.classList.toggle('hidden');
+      kbToggle.classList.toggle('active', !show);
+    });
+  }
 }
 
 /* ── FX popup toggle ── */
@@ -2315,86 +2326,103 @@ document.addEventListener('DOMContentLoaded', () => {
       label: 'O1 Vol', min: 0, max: 1,
       get: () => activeEngine.getVolume(1),
       set: (v) => activeEngine.setVolume(1, v),
+      bind: (eng) => ({ get: () => eng.getVolume(1), set: (v) => eng.setVolume(1, v) }),
     },
     'osc1-shape': {
       label: 'O1 Shp', min: 0, max: 1,
       get: () => activeEngine.getShape(1),
       set: (v) => activeEngine.setShape(1, v),
+      bind: (eng) => ({ get: () => eng.getShape(1), set: (v) => eng.setShape(1, v) }),
     },
     'osc1-pitch': {
       label: 'O1 Pit', min: -7, max: 7,
       get: () => activeEngine.getPitch(1),
       set: (v) => activeEngine.setPitch(1, v),
+      bind: (eng) => ({ get: () => eng.getPitch(1), set: (v) => eng.setPitch(1, v) }),
     },
     'osc2-volume': {
       label: 'O2 Vol', min: 0, max: 1,
       get: () => activeEngine.getVolume(2),
       set: (v) => activeEngine.setVolume(2, v),
+      bind: (eng) => ({ get: () => eng.getVolume(2), set: (v) => eng.setVolume(2, v) }),
     },
     'osc2-shape': {
       label: 'O2 Shp', min: 0, max: 1,
       get: () => activeEngine.getShape(2),
       set: (v) => activeEngine.setShape(2, v),
+      bind: (eng) => ({ get: () => eng.getShape(2), set: (v) => eng.setShape(2, v) }),
     },
     'osc2-pitch': {
       label: 'O2 Pit', min: -7, max: 7,
       get: () => activeEngine.getPitch(2),
       set: (v) => activeEngine.setPitch(2, v),
+      bind: (eng) => ({ get: () => eng.getPitch(2), set: (v) => eng.setPitch(2, v) }),
     },
     'filter-cutoff': {
       label: 'Cutoff', min: 20, max: 20000, log: true,
       get: () => activeEngine.getFilterCutoff(),
       set: (v) => activeEngine.setFilterCutoff(v),
+      bind: (eng) => ({ get: () => eng.getFilterCutoff(), set: (v) => eng.setFilterCutoff(v) }),
     },
     'filter-q': {
       label: 'Reso', min: 0.01, max: 30,
       get: () => activeEngine.getFilterQ(),
       set: (v) => activeEngine.setFilterQ(v),
+      bind: (eng) => ({ get: () => eng.getFilterQ(), set: (v) => eng.setFilterQ(v) }),
     },
     'filter-gain': {
       label: 'Flt Gain', min: -24, max: 24,
       get: () => activeEngine.getFilterGain(),
       set: (v) => activeEngine.setFilterGain(v),
+      bind: (eng) => ({ get: () => eng.getFilterGain(), set: (v) => eng.setFilterGain(v) }),
     },
     'osc3-volume': {
       label: 'O3 Vol', min: 0, max: 1,
       get: () => activeEngine.getOsc3Volume(),
       set: (v) => activeEngine.setOsc3Volume(v),
+      bind: (eng) => ({ get: () => eng.getOsc3Volume(), set: (v) => eng.setOsc3Volume(v) }),
     },
     'osc3-pitch': {
       label: 'O3 Pit', min: -7, max: 7,
       get: () => activeEngine.getOsc3Pitch(),
       set: (v) => activeEngine.setOsc3Pitch(v),
+      bind: (eng) => ({ get: () => eng.getOsc3Pitch(), set: (v) => eng.setOsc3Pitch(v) }),
     },
     'osc3-color': {
       label: 'O3 Clr', min: 0, max: 1,
       get: () => activeEngine.getOsc3Color(),
       set: (v) => activeEngine.setOsc3Color(v),
+      bind: (eng) => ({ get: () => eng.getOsc3Color(), set: (v) => eng.setOsc3Color(v) }),
     },
     'osc3-damping': {
       label: 'O3 Dmp', min: 0, max: 1,
       get: () => activeEngine.getOsc3Damping(),
       set: (v) => activeEngine.setOsc3Damping(v),
+      bind: (eng) => ({ get: () => eng.getOsc3Damping(), set: (v) => eng.setOsc3Damping(v) }),
     },
     'osc3-ratio': {
       label: 'O3 Rat', min: 0.5, max: 12,
       get: () => activeEngine.getOsc3Ratio(),
       set: (v) => activeEngine.setOsc3Ratio(v),
+      bind: (eng) => ({ get: () => eng.getOsc3Ratio(), set: (v) => eng.setOsc3Ratio(v) }),
     },
     'osc3-index': {
       label: 'O3 Idx', min: 0, max: 20,
       get: () => activeEngine.getOsc3Index(),
       set: (v) => activeEngine.setOsc3Index(v),
+      bind: (eng) => ({ get: () => eng.getOsc3Index(), set: (v) => eng.setOsc3Index(v) }),
     },
     'osc3-morph': {
       label: 'O3 Mph', min: 0, max: 1,
       get: () => activeEngine.getOsc3Morph(),
       set: (v) => activeEngine.setOsc3Morph(v),
+      bind: (eng) => ({ get: () => eng.getOsc3Morph(), set: (v) => eng.setOsc3Morph(v) }),
     },
     'osc3-vibrato': {
       label: 'O3 Vib', min: 0, max: 1,
       get: () => activeEngine.getOsc3Vibrato(),
       set: (v) => activeEngine.setOsc3Vibrato(v),
+      bind: (eng) => ({ get: () => eng.getOsc3Vibrato(), set: (v) => eng.setOsc3Vibrato(v) }),
     },
   });
 
