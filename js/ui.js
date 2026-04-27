@@ -14,7 +14,7 @@ export class UIManager {
     this._adsrValues = {};
     this._arpPopup = null;
     this._fxPopup = null;
-    this._drumPopup = null;
+
     this._seqPopup = null;
   }
 
@@ -22,7 +22,7 @@ export class UIManager {
     this._noteDisplay = document.getElementById('note-display');
     this._arpPopup = document.getElementById('arp-popup');
     this._fxPopup = document.getElementById('fx-popup');
-    this._drumPopup = document.getElementById('drum-popup');
+
     this._seqPopup = document.getElementById('seq-popup');
     this._currentFilterType = 'lowpass';
     this._currentFilterModel = 'svf12';
@@ -484,17 +484,6 @@ export class UIManager {
       });
     }
 
-    // Drum Machine popup toggle
-    const drumBtn = document.getElementById('drum-btn');
-    if (drumBtn) {
-      drumBtn.addEventListener('click', () => {
-        const open = !drumBtn.classList.contains('active');
-        drumBtn.classList.toggle('active', open);
-        this._toggleDrumPopup(open);
-        if (this._cb.onDrumToggle) this._cb.onDrumToggle(open);
-      });
-    }
-
     // Step Sequencer popup toggle
     const seqBtn = document.getElementById('seq-btn');
     if (seqBtn) {
@@ -535,12 +524,6 @@ export class UIManager {
   _toggleFxPopup(open) {
     if (this._fxPopup) {
       this._fxPopup.classList.toggle('open', open);
-    }
-  }
-
-  _toggleDrumPopup(open) {
-    if (this._drumPopup) {
-      this._drumPopup.classList.toggle('open', open);
     }
   }
 

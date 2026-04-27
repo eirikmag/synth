@@ -485,8 +485,9 @@ body {
   max-width: 98vw;
 }
 .seq-popup.open {
-  max-height: 600px;
+  max-height: 800px;
   opacity: 1;
+  overflow-y: auto;
 }
 .seq-popup-inner {
   background: linear-gradient(180deg, #1a1a24 0%, #1e1e2a 100%);
@@ -788,6 +789,353 @@ body {
   font-family: 'Consolas', 'Courier New', monospace;
   outline: none;
   padding: 2px;
+}
+
+/* ===== Unified Track Grid ===== */
+.track-row-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.track-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.track-row.rec-target .track-row-label {
+  color: #e03040;
+}
+.track-type-badge {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  font-size: .45rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-right: 4px;
+  user-select: none;
+  flex-shrink: 0;
+}
+.track-type-synth {
+  background: #1a3a4a;
+  color: #5bc0eb;
+  border: 1px solid #5bc0eb44;
+}
+.track-type-drum {
+  background: #3a2a1a;
+  color: #eb9b34;
+  border: 1px solid #eb9b3444;
+}
+.track-type-sample {
+  background: #1a3a1a;
+  color: #7beb5b;
+  border: 1px solid #7beb5b44;
+}
+.track-type-badge:hover {
+  opacity: 0.7;
+}
+.track-row-label {
+  width: 44px;
+  font-size: .5rem;
+  font-weight: 700;
+  letter-spacing: .5px;
+  color: #888;
+  text-align: right;
+  padding-right: 6px;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.track-row-label:hover {
+  color: #5bc0eb;
+}
+.track-row-label.editing {
+  color: #5bc0eb;
+}
+.track-row-steps {
+  display: flex;
+  flex: 1;
+}
+.track-step {
+  flex: 1;
+  height: 22px;
+  background: #16161e;
+  border: 1px solid #222230;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background .08s, border-color .08s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .5rem;
+  font-weight: 600;
+  color: #555;
+  user-select: none;
+  margin-left: 2px;
+}
+.track-step:first-child {
+  margin-left: 0;
+}
+.track-step:hover {
+  border-color: #444;
+}
+/* Synth track on */
+.track-row[data-type="synth"] .track-step.on {
+  background: #2a5a3a;
+  border-color: #3a8a5a;
+  color: #9edab5;
+}
+/* Drum track on */
+.track-row[data-type="drum"] .track-step.on {
+  background: #4a3a1a;
+  border-color: #eb9b34;
+  color: #ebc57a;
+}
+/* Sample track on */
+.track-row[data-type="sample"] .track-step.on {
+  background: #1a3a1a;
+  border-color: #7beb5b;
+  color: #b0eea0;
+}
+.track-step.current {
+  border-color: #eb9b34;
+  box-shadow: 0 0 4px rgba(235,155,52,.4);
+}
+.track-step:nth-child(4n+1) {
+  border-left: 2px solid #333;
+}
+/* Ties */
+.track-step.tie-start {
+  border-radius: 2px 0 0 2px;
+  border-right: none;
+  margin-right: 0;
+}
+.track-step.tie-mid {
+  margin-left: 0;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+.track-step.tie-end {
+  margin-left: 0;
+  border-radius: 0 2px 2px 0;
+  border-left: none;
+}
+.track-step.tie-mid:nth-child(4n+1),
+.track-step.tie-end:nth-child(4n+1) {
+  border-left: none;
+}
+/* Mute / Vol / Remove */
+.track-mute-btn {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #2a2a3a;
+  border-radius: 3px;
+  background: #0e0e18;
+  color: #555;
+  font-size: .5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: all .1s;
+  user-select: none;
+}
+.track-mute-btn:hover {
+  border-color: #e03040;
+  color: #ccc;
+}
+.track-mute-btn.active {
+  background: #e03040;
+  border-color: #e03040;
+  color: #fff;
+}
+.track-row-vol {
+  width: 50px;
+  margin-left: 6px;
+}
+.track-row-vol input {
+  width: 100%;
+  height: 4px;
+}
+.track-remove-btn {
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: #555;
+  font-size: .55rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  padding: 0;
+}
+.track-remove-btn:hover {
+  color: #e03040;
+}
+/* Glide row */
+.track-glide-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.track-glide-label {
+  width: 64px; /* badge + label */
+  font-size: .4rem;
+  font-weight: 700;
+  color: #555;
+  text-align: right;
+  padding-right: 6px;
+  flex-shrink: 0;
+}
+.track-glide-steps {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+.track-glide-cell {
+  flex: 1;
+  height: 7px;
+  background: #12121a;
+  border: 1px solid #1e1e28;
+  border-radius: 1px;
+  cursor: pointer;
+  transition: background .08s;
+}
+.track-glide-cell.on {
+  background: #eb9b34;
+  border-color: #eb9b34;
+}
+.track-glide-cell:nth-child(4n+1) {
+  border-left: 2px solid #333;
+}
+.track-glide-spacer {
+  width: 76px;
+  flex-shrink: 0;
+}
+/* Add track buttons */
+.seq-add-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  margin-left: 64px;
+}
+.seq-add-btn {
+  padding: 3px 8px;
+  border: 1px dashed #2a2a3a;
+  border-radius: 4px;
+  background: transparent;
+  color: #555;
+  font-size: .5rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .1s;
+}
+.seq-add-btn:hover {
+  border-color: #5bc0eb;
+  color: #5bc0eb;
+}
+.seq-add-synth:hover { border-color: #5bc0eb; color: #5bc0eb; }
+.seq-add-drum:hover { border-color: #eb9b34; color: #eb9b34; }
+.seq-add-sample:hover { border-color: #7beb5b; color: #7beb5b; }
+/* Track config editor */
+.track-param-editor {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 64px;
+  background: #0e0e18;
+  border: 1px solid #222;
+  border-radius: 3px;
+  margin-bottom: 2px;
+  flex-wrap: wrap;
+}
+.track-param-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.track-param-group label {
+  font-size: .5rem;
+  font-weight: 700;
+  color: #666;
+  letter-spacing: .5px;
+}
+.track-part-selector,
+.track-kit-selector {
+  display: flex;
+  gap: 2px;
+}
+.track-part-btn,
+.track-kit-btn {
+  padding: 2px 6px;
+  border: 1px solid #2a2a3a;
+  border-radius: 3px;
+  background: #16161e;
+  color: #666;
+  font-size: .5rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .1s;
+}
+.track-part-btn:hover,
+.track-kit-btn:hover {
+  border-color: #5bc0eb;
+  color: #aaa;
+}
+.track-part-btn.active,
+.track-kit-btn.active {
+  background: #5bc0eb;
+  border-color: #5bc0eb;
+  color: #0a0a14;
+}
+.track-drum-params {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.track-audition-btn {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #2a2a3a;
+  border-radius: 50%;
+  background: #0e0e18;
+  color: #888;
+  font-size: .5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.track-audition-btn:hover {
+  color: #5bc0eb;
+}
+.seq-drum-preset-btn {
+  padding: 2px 5px;
+  border: 1px solid #2a2a3a;
+  border-radius: 3px;
+  background: #0e0e18;
+  color: #666;
+  font-size: .55rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .1s;
+}
+.seq-drum-preset-btn:hover {
+  border-color: #eb9b34;
+  color: #bbb;
 }
 
 /* ===== Drum Machine popup ===== */

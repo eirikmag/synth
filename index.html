@@ -40,55 +40,21 @@
   <div class="seq-popup" id="seq-popup">
     <div class="seq-popup-inner">
       <div class="seq-header">
-        <div class="section-label">STEP SEQUENCER</div>
+        <div class="section-label">SEQUENCER</div>
         <div class="seq-controls">
           <button class="seq-ctrl-btn" id="seq-play">PLAY</button>
           <button class="seq-ctrl-btn seq-rec-btn" id="seq-rec">REC</button>
           <button class="seq-ctrl-btn" id="seq-clear">CLR</button>
           <div class="seq-preset-group">
-            <label>PTN</label>
-            <button class="seq-preset-btn" data-seqpreset="arpUp">ARP</button>
-            <button class="seq-preset-btn" data-seqpreset="bass1">BASS</button>
-            <button class="seq-preset-btn" data-seqpreset="acid">ACID</button>
-            <button class="seq-preset-btn" data-seqpreset="melody">MEL</button>
+            <label>DRUMS</label>
+            <button class="seq-drum-preset-btn" data-preset="basic">BASIC</button>
+            <button class="seq-drum-preset-btn" data-preset="house">HOUSE</button>
+            <button class="seq-drum-preset-btn" data-preset="hiphop">HIP</button>
+            <button class="seq-drum-preset-btn" data-preset="electro">ELEC</button>
           </div>
         </div>
       </div>
       <div class="seq-grid" id="seq-grid">
-        <!-- built by JS -->
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== DRUM MACHINE POPUP ===== -->
-  <div class="drum-popup" id="drum-popup">
-    <div class="drum-popup-inner">
-      <div class="drum-header">
-        <div class="section-label">DRUM MACHINE</div>
-        <div class="drum-controls">
-          <button class="drum-ctrl-btn" id="drum-play">PLAY</button>
-          <button class="drum-ctrl-btn" id="drum-clear">CLR</button>
-          <div class="drum-kit-group">
-            <label>KIT</label>
-            <button class="drum-kit-btn active" data-kit="909">909</button>
-            <button class="drum-kit-btn" data-kit="808">808</button>
-            <button class="drum-kit-btn" data-kit="707">707</button>
-            <button class="drum-kit-btn" data-kit="HVY">HVY</button>
-          </div>
-          <div class="drum-preset-group">
-            <label>PTN</label>
-            <button class="drum-preset-btn" data-preset="basic">BASIC</button>
-            <button class="drum-preset-btn" data-preset="house">HOUSE</button>
-            <button class="drum-preset-btn" data-preset="hiphop">HIP</button>
-            <button class="drum-preset-btn" data-preset="electro">ELEC</button>
-          </div>
-          <div class="drum-vol-group">
-            <label>VOL</label>
-            <input type="range" id="drum-master-vol" class="knob-slider" min="0" max="1" step="0.01" value="0.8" />
-          </div>
-        </div>
-      </div>
-      <div class="drum-grid" id="drum-grid">
         <!-- built by JS -->
       </div>
     </div>
@@ -183,7 +149,6 @@
       <div class="panel-top">
         <span class="brand">SYNTH</span>
         <button class="fx-brand-btn" id="fx-btn">FX</button>
-        <button class="fx-brand-btn" id="drum-btn">DRUM</button>
         <button class="fx-brand-btn" id="seq-btn">SEQ</button>
         <button class="fx-brand-btn" id="project-btn">FILE</button>
         <div class="global-tempo">
