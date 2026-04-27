@@ -11,7 +11,7 @@
  */
 
 const CURRENT_VERSION = 2;
-const STORAGE_PREFIX = 'synth-project-';
+const STORAGE_PREFIX = 'taktlite-project-';
 
 export class PresetManager {
   constructor() {
@@ -148,7 +148,7 @@ export class PresetManager {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = (name || 'synth-project') + '.json';
+    a.download = (name || 'taktlite-project') + '.json';
     a.click();
     URL.revokeObjectURL(url);
   }

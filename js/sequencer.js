@@ -1,16 +1,19 @@
-﻿/**
- * Unified Sequencer — up to 16 tracks, each assigned to synth / drum / sample.
- *
- * Single transport with look-ahead scheduler.
- * Synth tracks trigger via callbacks; drum & sample tracks play audio directly.
+/**
+ * Sequencer — 16 tracks with per-track page/step control.
+ * Central transport engine. Each track can have 1-8 pages (16 steps each, up to 128 steps).
  */
 
 import { midiToFreq, midiToName } from './keyboard.js';
 import { playDrumPart, getDefaultDrumParams, DRUM_PARTS, DRUM_PART_IDS, DRUM_PART_PARAMS, DRUM_KITS, KIT_NAMES, DRUM_PRESETS, DRUM_PRESET_NAMES } from './drum-voices.js';
+import { TrackChain, CHAIN_FILTER_MODELS } from './track-chain.js';
+import { AudioEngine } from './audio.js';
 
 export { DRUM_PARTS, DRUM_PART_IDS, DRUM_PART_PARAMS, DRUM_KITS, KIT_NAMES, DRUM_PRESETS, DRUM_PRESET_NAMES };
+export { TrackChain, CHAIN_FILTER_MODELS };
 
-const NUM_STEPS = 16;
+export const STEPS_PER_PAGE = 16;
+export const MAX_PAGES = 8;
+export const MAX_STEPS = STEPS_PER_PAGE * MAX_PAGES; // 128
 const MAX_TRACKS = 16;
 const DEFAULT_NOTE = 60;
 export const SOURCE_TYPES = ['synth', 'drum', 'sample'];
@@ -27,10 +30,33 @@ const SYNTH_PRESETS = {
   },
   'bass1': {
     label: 'BASS',
-    notes:  [36,36,0,36, 38,0,36,0, 36,36,0,41, 38,0,36,0],
-    gates:  [1,1,0,1, 1,0,1,0, 1,1,0,1, 1,0,1,0],
-    vels:   [1,0.7,0,0.8, 0.9,0,0.7,0, 1,0.7,0,0.8, 0.9,0,0.7,0],
-    glides: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    length: 64,
+    //  "Around the World" — Daft Punk style bassline (B minor, 64 steps)
+    //  B1=35, E2=40, F#2=42
+    notes: [
+      35,35, 0,35, 0,35,35, 0, 35,35, 0,35, 0, 0, 0, 0,   // Bar 1: B root pumping
+      40,40, 0,40, 0,40,42, 0, 42, 0, 0,42, 40, 0, 0, 0,   // Bar 2: climb E→F#
+      35,35, 0,35, 0,35,35, 0, 35,35, 0,35, 0, 0, 0, 0,   // Bar 3: B root again
+      40,40, 0,40, 0,40,42, 0, 42,42, 0, 0, 35, 0, 0, 0,   // Bar 4: E→F#→resolve B
+    ],
+    gates: [
+      1,1,0,1, 0,1,1,0, 1,1,0,1, 0,0,0,0,
+      1,1,0,1, 0,1,1,0, 1,0,0,1, 1,0,0,0,
+      1,1,0,1, 0,1,1,0, 1,1,0,1, 0,0,0,0,
+      1,1,0,1, 0,1,1,0, 1,1,0,0, 1,0,0,0,
+    ],
+    vels: [
+      1,.7,0,.8, 0,.7,.9,0, 1,.7,0,.8, 0,0,0,0,
+      .9,.7,0,.8, 0,.7,.9,0, .8,0,0,.7, .8,0,0,0,
+      1,.7,0,.8, 0,.7,.9,0, 1,.7,0,.8, 0,0,0,0,
+      .9,.7,0,.8, 0,.7,.9,0, .8,.7,0,0, 1,0,0,0,
+    ],
+    glides: [
+      0,1,0,0, 0,0,1,0, 0,1,0,0, 0,0,0,0,
+      0,1,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+      0,1,0,0, 0,0,1,0, 0,1,0,0, 0,0,0,0,
+      0,1,0,0, 0,0,0,0, 0,1,0,0, 0,0,0,0,
+    ],
   },
   'acid': {
     label: 'ACID',
@@ -52,7 +78,7 @@ export const SYNTH_PRESET_NAMES = Object.keys(SYNTH_PRESETS);
 
 /* ── Track factory ────────────────────────────────────────── */
 
-function makeTrack(sourceType = 'synth', name = '', config = null) {
+function makeTrack(sourceType = 'synth', name = '', config = null, pages = 1, numSteps = STEPS_PER_PAGE) {
   let srcCfg;
   if (config) {
     srcCfg = config;
@@ -63,16 +89,21 @@ function makeTrack(sourceType = 'synth', name = '', config = null) {
   } else {
     srcCfg = {};
   }
+  const p = Math.max(1, Math.min(MAX_PAGES, pages));
+  const s = Math.max(1, Math.min(p * STEPS_PER_PAGE, numSteps));
   return {
     sourceType,
     sourceConfig: srcCfg,
-    notes:  new Array(NUM_STEPS).fill(DEFAULT_NOTE),
-    gates:  new Array(NUM_STEPS).fill(0),
-    vels:   new Array(NUM_STEPS).fill(1),
-    glides: new Array(NUM_STEPS).fill(0),
+    pages: p,
+    numSteps: s,
+    notes:  new Array(MAX_STEPS).fill(DEFAULT_NOTE),
+    gates:  new Array(MAX_STEPS).fill(0),
+    vels:   new Array(MAX_STEPS).fill(1),
+    glides: new Array(MAX_STEPS).fill(0),
     muted:  false,
+    solo:   false,
     volume: 1.0,
-    name:   name || (sourceType === 'drum' ? 'Drum' : sourceType === 'sample' ? 'Sample' : 'Synth'),
+    name:   name || (sourceType === 'drum' ? 'Anvil' : sourceType === 'sample' ? 'Cast' : 'Forge'),
   };
 }
 
@@ -82,37 +113,98 @@ export class Sequencer {
   constructor() {
     this._bpm = 120;
     this._swing = 0;
+    this._masterLength = 0; // 0 = off (each track loops independently), >0 = global loop point in steps
     this._playing = false;
     this._recording = false;
     this._recTrack = 0;
-    this._currentStep = -1;
+    this._globalTick = -1;
+    this._trackSteps = new Array(MAX_TRACKS).fill(-1);
     this._nextStepTime = 0;
     this._timerID = null;
 
-    this._tracks = [makeTrack('synth', 'Synth 1')];
+    this._tracks = this._buildDefaultTracks();
 
-    // Per-track runtime audio (not serialized)
-    this._trackGains = [];   // index -> GainNode | null
-    this._lastPlayed = [];   // index -> midi | null (synth tracks)
-    this._masterGain = null; // master output for drum/sample tracks
+    this._trackGains = new Array(MAX_TRACKS).fill(null);
+    this._trackChains = new Array(MAX_TRACKS).fill(null);
+    this._trackEngines = new Array(MAX_TRACKS).fill(null);
+    this._lastPlayed = new Array(MAX_TRACKS).fill(null);
+    this._masterGain = null;
+    this._monitorAnalyser = null; // analyser for visualizing the selected track
+    this._monitoredTrack = -1;   // which track feeds the monitor (-1 = master mix)
 
-    // Recording state
-    this._recHeldNotes = new Map(); // midi -> { track, step }
+    this._recHeldNotes = new Map();
 
-    // Callbacks
-    this._onSynthNoteOn = null;   // (trackIdx, freq, midi, name, vel)
-    this._onSynthNoteOff = null;  // (trackIdx, midi)
-    this._onStep = null;          // (stepIdx)
-    this._onRecordStep = null;    // (trackIdx, stepIdx)
+    this._onSynthNoteOn = null;
+    this._onSynthNoteOff = null;
+    this._onStep = null;
+    this._onRecordStep = null;
 
-    // Audio
     this._getCtx = null;
     this._samplePlayer = null;
+  }
+
+  _buildDefaultTracks() {
+    const drumParts = ['kick', 'snare', 'clap', 'chh', 'ohh'];
+    const tracks = [];
+
+    // Tracks 1-5 (idx 0-4): Drum kit 909
+    for (const part of drumParts) {
+      const partDef = DRUM_PARTS.find(p => p.id === part);
+      tracks.push(makeTrack('drum', partDef ? partDef.label : part, {
+        part, kit: '909', params: getDefaultDrumParams(part, '909')
+      }));
+    }
+
+    // Tracks 6-8 (idx 5-7): empty synth
+    tracks.push(makeTrack('synth', 'Forge 6'));
+    tracks.push(makeTrack('synth', 'Forge 7'));
+    tracks.push(makeTrack('synth', 'Forge 8'));
+
+    // Tracks 9-16 (idx 8-15): empty synth
+    for (let i = 9; i <= MAX_TRACKS; i++) {
+      tracks.push(makeTrack('synth', `Forge ${i}`));
+    }
+
+    return tracks;
   }
 
   init(getAudioContext, samplePlayer = null) {
     this._getCtx = getAudioContext;
     this._samplePlayer = samplePlayer;
+  }
+
+  /** Get/create the monitor analyser for visualization. */
+  get monitorAnalyser() {
+    if (this._monitorAnalyser) return this._monitorAnalyser;
+    const ctx = this._getCtx && this._getCtx();
+    if (!ctx) return null;
+    this._ensureAudio();
+    this._monitorAnalyser = ctx.createAnalyser();
+    this._monitorAnalyser.fftSize = 2048;
+    // Connect master mix by default
+    this._masterGain.connect(this._monitorAnalyser);
+    this._monitoredTrack = -1;
+    return this._monitorAnalyser;
+  }
+
+  /** Switch which track the monitor analyser listens to. -1 = full mix. */
+  setMonitorTrack(idx) {
+    if (!this._monitorAnalyser) return;
+    // Disconnect previous source from monitor
+    if (this._monitoredTrack === -1) {
+      try { this._masterGain.disconnect(this._monitorAnalyser); } catch {}
+    } else {
+      const prevGain = this._trackGains[this._monitoredTrack];
+      if (prevGain) try { prevGain.disconnect(this._monitorAnalyser); } catch {}
+    }
+    this._monitoredTrack = idx;
+    // Connect new source
+    if (idx === -1) {
+      this._masterGain.connect(this._monitorAnalyser);
+    } else {
+      const g = this._ensureTrackGain(idx);
+      if (g) g.connect(this._monitorAnalyser);
+    }
   }
 
   _ensureAudio() {
@@ -134,18 +226,66 @@ export class Sequencer {
     g.gain.value = track ? track.volume : 1;
     g.connect(this._masterGain);
     this._trackGains[idx] = g;
+
+    // Create per-track processing chain: source → chain → trackGain → master
+    const chain = new TrackChain(ctx, g);
+    this._trackChains[idx] = chain;
+    // Load saved chain state if present
+    if (track && track.chainState) {
+      chain.loadState(track.chainState);
+    }
     return g;
+  }
+
+  /** Get the TrackChain input node for routing audio through the track's modules. */
+  getTrackInput(idx) {
+    this._ensureTrackGain(idx);
+    const chain = this._trackChains[idx];
+    return chain ? chain.input : this._trackGains[idx];
+  }
+
+  /** Get the TrackChain instance for a track (for UI parameter control). */
+  getTrackChain(idx) {
+    this._ensureTrackGain(idx);
+    return this._trackChains[idx];
+  }
+
+  /** Get or create the per-track AudioEngine for a synth track. */
+  getTrackEngine(idx) {
+    if (this._trackEngines[idx]) return this._trackEngines[idx];
+    const track = this._tracks[idx];
+    if (!track || track.sourceType !== 'synth') return null;
+    const ctx = this._getCtx && this._getCtx();
+    if (!ctx) return null;
+
+    const engine = new AudioEngine();
+    engine.initWithContext(ctx);
+    // Connect engine masterGain → track chain input (so voices go through the chain)
+    const chainInput = this.getTrackInput(idx);
+    engine._masterGain.connect(chainInput);
+    this._trackEngines[idx] = engine;
+
+    // Load saved engine state if present
+    if (track.engineState) {
+      this._loadEngineState(engine, track.engineState);
+    }
+    return engine;
   }
 
   /* ── Getters ────────────────────────────────────────────── */
 
   get playing() { return this._playing; }
-  get currentStep() { return this._currentStep; }
-  get numSteps() { return NUM_STEPS; }
   get trackCount() { return this._tracks.length; }
   get maxTracks() { return MAX_TRACKS; }
   get recTrack() { return this._recTrack; }
   get recording() { return this._recording; }
+
+  get masterLength() { return this._masterLength; }
+  setMasterLength(steps) {
+    this._masterLength = Math.max(0, Math.min(MAX_STEPS, steps));
+  }
+
+  getTrackStep(idx) { return this._trackSteps[idx]; }
 
   set onSynthNoteOn(fn) { this._onSynthNoteOn = fn; }
   set onSynthNoteOff(fn) { this._onSynthNoteOff = fn; }
@@ -159,22 +299,22 @@ export class Sequencer {
     this._tracks.push(makeTrack(sourceType, name, config));
     this._trackGains.push(null);
     this._lastPlayed.push(null);
+    this._trackSteps.push(-1);
     return this._tracks.length - 1;
   }
 
   removeTrack(idx) {
     if (this._tracks.length <= 1 || idx < 0 || idx >= this._tracks.length) return;
-    // Release sounding note
     if (this._lastPlayed[idx] != null && this._onSynthNoteOff) {
       this._onSynthNoteOff(idx, this._lastPlayed[idx]);
     }
-    // Disconnect gain
     if (this._trackGains[idx]) {
       try { this._trackGains[idx].disconnect(); } catch {}
     }
     this._tracks.splice(idx, 1);
     this._trackGains.splice(idx, 1);
     this._lastPlayed.splice(idx, 1);
+    this._trackSteps.splice(idx, 1);
     if (this._recTrack >= this._tracks.length) this._recTrack = this._tracks.length - 1;
   }
 
@@ -186,14 +326,16 @@ export class Sequencer {
       sourceConfig: t.sourceConfig,
       name: t.name,
       muted: t.muted,
+      solo: t.solo,
       volume: t.volume,
+      pages: t.pages,
+      numSteps: t.numSteps,
     };
   }
 
   setTrackSource(idx, sourceType, config = null) {
     const t = this._tracks[idx];
     if (!t) return;
-    // Release any sounding note if switching from synth
     if (t.sourceType === 'synth' && this._lastPlayed[idx] != null && this._onSynthNoteOff) {
       this._onSynthNoteOff(idx, this._lastPlayed[idx]);
       this._lastPlayed[idx] = null;
@@ -210,19 +352,29 @@ export class Sequencer {
     }
   }
 
-  setTrackName(idx, name) {
-    if (this._tracks[idx]) this._tracks[idx].name = name;
-  }
-
-  setTrackMuted(idx, on) {
-    if (this._tracks[idx]) this._tracks[idx].muted = !!on;
-  }
+  setTrackName(idx, name) { if (this._tracks[idx]) this._tracks[idx].name = name; }
+  setTrackMuted(idx, on) { if (this._tracks[idx]) this._tracks[idx].muted = !!on; }
 
   toggleTrackMute(idx) {
     const t = this._tracks[idx];
     if (!t) return false;
     t.muted = !t.muted;
     return t.muted;
+  }
+
+  setTrackSolo(idx, on) { if (this._tracks[idx]) this._tracks[idx].solo = !!on; }
+
+  toggleTrackSolo(idx) {
+    const t = this._tracks[idx];
+    if (!t) return false;
+    t.solo = !t.solo;
+    return t.solo;
+  }
+
+  _isTrackAudible(idx) {
+    const hasSolo = this._tracks.some(t => t.solo);
+    if (hasSolo) return this._tracks[idx].solo;
+    return !this._tracks[idx].muted;
   }
 
   setTrackVolume(idx, vol) {
@@ -237,6 +389,27 @@ export class Sequencer {
 
   getTrackVolume(idx) { return this._tracks[idx] ? this._tracks[idx].volume : 1; }
   getTrackMuted(idx) { return this._tracks[idx] ? this._tracks[idx].muted : false; }
+  getTrackSolo(idx) { return this._tracks[idx] ? this._tracks[idx].solo : false; }
+
+  /* ── Per-track pages and steps ──────────────────────────── */
+
+  setTrackPages(idx, pages) {
+    const t = this._tracks[idx];
+    if (!t) return;
+    t.pages = Math.max(1, Math.min(MAX_PAGES, pages));
+    const maxSteps = t.pages * STEPS_PER_PAGE;
+    if (t.numSteps > maxSteps) t.numSteps = maxSteps;
+  }
+
+  setTrackNumSteps(idx, numSteps) {
+    const t = this._tracks[idx];
+    if (!t) return;
+    const maxSteps = t.pages * STEPS_PER_PAGE;
+    t.numSteps = Math.max(1, Math.min(maxSteps, numSteps));
+  }
+
+  getTrackPages(idx) { return this._tracks[idx] ? this._tracks[idx].pages : 1; }
+  getTrackNumSteps(idx) { return this._tracks[idx] ? this._tracks[idx].numSteps : STEPS_PER_PAGE; }
 
   /* ── Drum track config ──────────────────────────────────── */
 
@@ -278,23 +451,23 @@ export class Sequencer {
 
   /* ── Step data ──────────────────────────────────────────── */
 
-  getStepNote(t, s)  { return this._tracks[t] ? this._tracks[t].notes[s]  : DEFAULT_NOTE; }
-  getStepGate(t, s)  { return this._tracks[t] ? this._tracks[t].gates[s]  : 0; }
-  getStepVel(t, s)   { return this._tracks[t] ? this._tracks[t].vels[s]   : 1; }
-  getStepGlide(t, s) { return this._tracks[t] ? this._tracks[t].glides[s] : 0; }
+  getStepNote(t, s)  { return (this._tracks[t] && s < MAX_STEPS) ? this._tracks[t].notes[s]  : DEFAULT_NOTE; }
+  getStepGate(t, s)  { return (this._tracks[t] && s < MAX_STEPS) ? this._tracks[t].gates[s]  : 0; }
+  getStepVel(t, s)   { return (this._tracks[t] && s < MAX_STEPS) ? this._tracks[t].vels[s]   : 1; }
+  getStepGlide(t, s) { return (this._tracks[t] && s < MAX_STEPS) ? this._tracks[t].glides[s] : 0; }
 
-  setStepNote(t, s, midi) { if (this._tracks[t]) this._tracks[t].notes[s] = Math.max(0, Math.min(127, midi)); }
-  setStepVel(t, s, v)     { if (this._tracks[t]) this._tracks[t].vels[s] = Math.max(0, Math.min(1, v)); }
-  setStepGlide(t, s, on)  { if (this._tracks[t]) this._tracks[t].glides[s] = on ? 1 : 0; }
+  setStepNote(t, s, midi) { if (this._tracks[t] && s < MAX_STEPS) this._tracks[t].notes[s] = Math.max(0, Math.min(127, midi)); }
+  setStepVel(t, s, v)     { if (this._tracks[t] && s < MAX_STEPS) this._tracks[t].vels[s] = Math.max(0, Math.min(1, v)); }
+  setStepGlide(t, s, on)  { if (this._tracks[t] && s < MAX_STEPS) this._tracks[t].glides[s] = on ? 1 : 0; }
 
   toggleGate(t, s) {
-    if (!this._tracks[t]) return 0;
+    if (!this._tracks[t] || s >= MAX_STEPS) return 0;
     this._tracks[t].gates[s] = this._tracks[t].gates[s] ? 0 : 1;
     return this._tracks[t].gates[s];
   }
 
   setGate(t, s, on) {
-    if (this._tracks[t]) this._tracks[t].gates[s] = on ? 1 : 0;
+    if (this._tracks[t] && s < MAX_STEPS) this._tracks[t].gates[s] = on ? 1 : 0;
   }
 
   /* ── Recording (synth tracks only) ─────────────────────── */
@@ -306,16 +479,13 @@ export class Sequencer {
   }
 
   recordNote(midi, vel = 1) {
-    if (!this._playing || this._currentStep < 0) return;
-    if (this._recHeldNotes.has(midi)) {
-      this.recordNoteOff(midi);
-    }
+    if (!this._playing) return;
+    if (this._recHeldNotes.has(midi)) this.recordNoteOff(midi);
     const t = this._recTrack;
-    const s = this._currentStep;
+    const s = this._trackSteps[t];
+    if (s < 0) return;
     const track = this._tracks[t];
     if (!track || track.sourceType !== 'synth') return;
-    const prev = (s - 1 + NUM_STEPS) % NUM_STEPS;
-    track.glides[prev] = 0;
     track.notes[s] = Math.max(0, Math.min(127, midi));
     track.gates[s] = 1;
     track.vels[s] = Math.max(0, Math.min(1, vel));
@@ -324,23 +494,24 @@ export class Sequencer {
   }
 
   recordNoteOff(midi) {
-    if (!this._playing || this._currentStep < 0) return;
+    if (!this._playing) return;
     const held = this._recHeldNotes.get(midi);
     if (!held) return;
     this._recHeldNotes.delete(midi);
     const { track: t, step: startStep } = held;
     const track = this._tracks[t];
     if (!track) return;
-    let endStep = this._currentStep;
-    let span = (endStep - startStep + NUM_STEPS) % NUM_STEPS;
+    const ns = track.numSteps;
+    let endStep = this._trackSteps[t];
+    let span = (endStep - startStep + ns) % ns;
     if (span === 0) return;
     const vel = track.vels[startStep];
     for (let i = 1; i <= span; i++) {
-      const s = (startStep + i) % NUM_STEPS;
+      const s = (startStep + i) % ns;
       track.notes[s] = track.notes[startStep];
       track.gates[s] = 1;
       track.vels[s] = vel;
-      const prev = (s - 1 + NUM_STEPS) % NUM_STEPS;
+      const prev = (s - 1 + ns) % ns;
       track.glides[prev] = 1;
       if (this._onRecordStep) this._onRecordStep(t, s);
     }
@@ -388,12 +559,35 @@ export class Sequencer {
     t.glides.fill(0);
   }
 
-  /** Load a synth preset into a specific track */
+  /** Full reset: clear notes, reset engine to defaults, reset chain to bypass. */
+  resetTrack(idx) {
+    this.clearTrack(idx);
+    const t = this._tracks[idx];
+    if (!t) return;
+    // Reset engine
+    const engine = this._trackEngines[idx];
+    if (engine) {
+      engine.allNotesOff();
+      this._loadEngineState(engine, null);
+    }
+    t.engineState = null;
+    // Reset chain
+    const chain = this._trackChains[idx];
+    if (chain) chain.reset();
+    t.chainState = null;
+  }
+
   loadSynthPreset(trackIdx, presetName) {
     const p = SYNTH_PRESETS[presetName];
     const t = this._tracks[trackIdx];
     if (!p || !t || t.sourceType !== 'synth') return;
-    for (let i = 0; i < NUM_STEPS; i++) {
+    const len = p.length || STEPS_PER_PAGE;
+    const pages = Math.ceil(len / STEPS_PER_PAGE);
+    t.pages = Math.max(t.pages, pages);
+    t.numSteps = Math.max(t.numSteps, len);
+    // Clear existing, then write preset
+    t.notes.fill(DEFAULT_NOTE); t.gates.fill(0); t.vels.fill(1); t.glides.fill(0);
+    for (let i = 0; i < len; i++) {
       t.notes[i]  = p.notes[i]  !== undefined ? p.notes[i]  : DEFAULT_NOTE;
       t.gates[i]  = p.gates[i]  !== undefined ? p.gates[i]  : 0;
       t.vels[i]   = p.vels[i]   !== undefined ? p.vels[i]   : 1;
@@ -401,13 +595,10 @@ export class Sequencer {
     }
   }
 
-  /** Load a drum preset — creates/fills drum tracks for each part */
   loadDrumPreset(presetName, kit = '909') {
     const p = DRUM_PRESETS[presetName];
     if (!p) return;
-
     for (const [partId, pattern] of Object.entries(p)) {
-      // Find existing drum track for this part, or create one
       let idx = this._tracks.findIndex(t =>
         t.sourceType === 'drum' && t.sourceConfig.part === partId
       );
@@ -416,10 +607,10 @@ export class Sequencer {
         idx = this.addTrack('drum', partDef ? partDef.label : partId, {
           part: partId, kit, params: getDefaultDrumParams(partId, kit),
         });
-        if (idx === -1) return; // max tracks reached
+        if (idx === -1) return;
       }
       const track = this._tracks[idx];
-      for (let s = 0; s < NUM_STEPS; s++) {
+      for (let s = 0; s < STEPS_PER_PAGE; s++) {
         track.gates[s] = pattern[s] || 0;
         track.vels[s] = pattern[s] ? 1 : 0;
       }
@@ -440,7 +631,8 @@ export class Sequencer {
     const ctx = this._getCtx && this._getCtx();
     if (!ctx) return;
     this._playing = true;
-    this._currentStep = -1;
+    this._globalTick = -1;
+    this._trackSteps.fill(-1);
     this._nextStepTime = ctx.currentTime + 0.05;
     this._schedule();
   }
@@ -451,23 +643,36 @@ export class Sequencer {
       clearTimeout(this._timerID);
       this._timerID = null;
     }
-    // Release sounding synth notes
     this._tracks.forEach((t, idx) => {
-      if (t.sourceType === 'synth' && this._lastPlayed[idx] != null) {
-        if (this._onSynthNoteOff) this._onSynthNoteOff(idx, this._lastPlayed[idx]);
-        this._lastPlayed[idx] = null;
+      if (t.sourceType === 'synth') {
+        // Actually stop the engine's voices
+        const engine = this._trackEngines[idx];
+        if (engine) engine.allNotesOff();
+        if (this._lastPlayed[idx] != null) {
+          if (this._onSynthNoteOff) this._onSynthNoteOff(idx, this._lastPlayed[idx]);
+          this._lastPlayed[idx] = null;
+        }
       }
     });
     this._recHeldNotes.clear();
-    this._currentStep = -1;
-    if (this._onStep) this._onStep(-1);
+    this._globalTick = -1;
+    this._trackSteps.fill(-1);
+    if (this._onStep) this._onStep(null);
+  }
+
+  /** Kill all sound on all track engines immediately. */
+  panic() {
+    this._trackEngines.forEach(engine => {
+      if (engine) engine.allNotesOff();
+    });
+    this._lastPlayed.fill(null);
   }
 
   /* ── Scheduler ──────────────────────────────────────────── */
 
-  _stepDuration(stepIndex) {
+  _stepDuration(tick) {
     const base = (60 / this._bpm) / 4;
-    if (stepIndex % 2 === 1) return base * (1 - this._swing);
+    if (tick % 2 === 1) return base * (1 - this._swing);
     return base * (1 + this._swing);
   }
 
@@ -478,25 +683,41 @@ export class Sequencer {
     const lookAhead = 0.1;
     const interval = 25;
     while (this._nextStepTime < ctx.currentTime + lookAhead) {
-      this._currentStep = (this._currentStep + 1) % NUM_STEPS;
-      this._playStep(this._currentStep, this._nextStepTime);
-      if (this._onStep) this._onStep(this._currentStep);
-      this._nextStepTime += this._stepDuration(this._currentStep);
+      this._globalTick++;
+      // Master length: if set, reset all tracks to 0 when global tick reaches it
+      if (this._masterLength > 0 && this._globalTick > 0 && (this._globalTick % this._masterLength) === 0) {
+        this._tracks.forEach((track, idx) => {
+          this._trackSteps[idx] = 0;
+        });
+      } else {
+        // Advance each track's step independently
+        this._tracks.forEach((track, idx) => {
+          this._trackSteps[idx] = (this._trackSteps[idx] + 1) % track.numSteps;
+        });
+      }
+      this._playAllTracks(this._nextStepTime);
+      if (this._onStep) this._onStep(this._trackSteps.slice(0, this._tracks.length));
+      this._nextStepTime += this._stepDuration(this._globalTick);
     }
     this._timerID = setTimeout(() => this._schedule(), interval);
   }
 
-  _playStep(step, time) {
+  _playAllTracks(time) {
     const ctx = this._getCtx();
     if (!ctx) return;
-    const delay = Math.max(0, (time - ctx.currentTime) * 1000);
-
     this._tracks.forEach((track, idx) => {
+      const step = this._trackSteps[idx];
+      const delay = Math.max(0, (time - ctx.currentTime) * 1000);
       setTimeout(() => {
-        if (!this._playing && step !== this._currentStep) return;
-
+        if (!this._playing) return;
+        if (!this._isTrackAudible(idx)) {
+          if (track.sourceType === 'synth' && this._lastPlayed[idx] != null) {
+            if (this._onSynthNoteOff) this._onSynthNoteOff(idx, this._lastPlayed[idx]);
+            this._lastPlayed[idx] = null;
+          }
+          return;
+        }
         const gateOn = track.gates[step];
-
         if (track.sourceType === 'synth') {
           this._playSynthStep(track, idx, step, gateOn);
         } else if (track.sourceType === 'drum') {
@@ -509,22 +730,26 @@ export class Sequencer {
   }
 
   _playSynthStep(track, idx, step, gateOn) {
-    const nextStep = (step + 1) % NUM_STEPS;
+    const engine = this.getTrackEngine(idx);
+    if (!engine) return;
+
+    const nextStep = (step + 1) % track.numSteps;
     const glide = track.glides[step] && track.gates[nextStep];
 
-    // Release previous note unless gliding into same note
     if (this._lastPlayed[idx] != null) {
       if (!glide || track.notes[step] !== this._lastPlayed[idx]) {
+        engine.noteOff(this._lastPlayed[idx]);
         if (this._onSynthNoteOff) this._onSynthNoteOff(idx, this._lastPlayed[idx]);
         this._lastPlayed[idx] = null;
       }
     }
 
-    if (gateOn && !track.muted) {
+    if (gateOn) {
       const midi = track.notes[step];
       if (glide && midi === this._lastPlayed[idx]) return;
       this._lastPlayed[idx] = midi;
       const vel = track.vels[step] * track.volume;
+      engine.noteOn(midiToFreq(midi), midi, vel);
       if (this._onSynthNoteOn) {
         this._onSynthNoteOn(idx, midiToFreq(midi), midi, midiToName(midi), vel);
       }
@@ -532,20 +757,22 @@ export class Sequencer {
   }
 
   _playDrumStep(track, idx, step, gateOn) {
-    if (!gateOn || track.muted) return;
+    if (!gateOn) return;
     const ctx = this._getCtx();
     if (!ctx) return;
-    const dest = this._ensureTrackGain(idx);
+    this._ensureTrackGain(idx);
+    const dest = this.getTrackInput(idx);
     if (!dest) return;
     const vel = track.vels[step] * track.volume;
     playDrumPart(ctx, dest, track.sourceConfig.part, vel, track.sourceConfig.params);
   }
 
   _playSampleStep(track, idx, step, gateOn) {
-    if (!gateOn || track.muted || !this._samplePlayer) return;
+    if (!gateOn || !this._samplePlayer) return;
     const ctx = this._getCtx();
     if (!ctx) return;
-    const dest = this._ensureTrackGain(idx);
+    this._ensureTrackGain(idx);
+    const dest = this.getTrackInput(idx);
     if (!dest) return;
     const vel = track.vels[step] * track.volume;
     this._samplePlayer.play(ctx, dest, track.sourceConfig.sampleName, vel);
@@ -557,16 +784,22 @@ export class Sequencer {
     return {
       bpm: this._bpm,
       swing: this._swing,
-      tracks: this._tracks.map(t => ({
+      masterLength: this._masterLength,
+      tracks: this._tracks.map((t, idx) => ({
         sourceType: t.sourceType,
         sourceConfig: JSON.parse(JSON.stringify(t.sourceConfig)),
+        pages: t.pages,
+        numSteps: t.numSteps,
         notes:  [...t.notes],
         gates:  [...t.gates],
         vels:   [...t.vels],
         glides: [...t.glides],
         muted:  t.muted,
+        solo:   t.solo,
         volume: t.volume,
         name:   t.name,
+        chainState: this._trackChains[idx] ? this._trackChains[idx].getState() : (t.chainState || null),
+        engineState: this._trackEngines[idx] ? this._getEngineState(this._trackEngines[idx]) : (t.engineState || null),
       })),
     };
   }
@@ -578,27 +811,93 @@ export class Sequencer {
 
     if (s.bpm !== undefined) this._bpm = s.bpm;
     if (s.swing !== undefined) this._swing = s.swing;
+    if (s.masterLength !== undefined) this._masterLength = s.masterLength;
 
-    // Disconnect old track gains
     this._trackGains.forEach(g => { if (g) try { g.disconnect(); } catch {} });
+    this._trackChains.forEach(c => { if (c) try { c.destroy(); } catch {} });
+    this._trackEngines.forEach(e => { if (e) e.allNotesOff(); });
 
     this._tracks = s.tracks.map(st => {
-      const t = makeTrack(st.sourceType, st.name, st.sourceConfig);
-      for (let i = 0; i < NUM_STEPS; i++) {
+      const t = makeTrack(st.sourceType, st.name, st.sourceConfig, st.pages || 1, st.numSteps || STEPS_PER_PAGE);
+      for (let i = 0; i < MAX_STEPS; i++) {
         if (st.notes  && st.notes[i]  !== undefined) t.notes[i]  = st.notes[i];
         if (st.gates  && st.gates[i]  !== undefined) t.gates[i]  = st.gates[i];
         if (st.vels   && st.vels[i]   !== undefined) t.vels[i]   = st.vels[i];
         if (st.glides && st.glides[i] !== undefined) t.glides[i] = st.glides[i];
       }
       t.muted  = !!st.muted;
+      t.solo   = !!st.solo;
       t.volume = st.volume !== undefined ? st.volume : 1.0;
+      t.chainState = st.chainState || null;
+      t.engineState = st.engineState || null;
       return t;
     });
 
     this._trackGains = new Array(this._tracks.length).fill(null);
+    this._trackChains = new Array(this._tracks.length).fill(null);
+    this._trackEngines = new Array(this._tracks.length).fill(null);
     this._lastPlayed = new Array(this._tracks.length).fill(null);
+    this._trackSteps = new Array(this._tracks.length).fill(-1);
 
     if (this._recTrack >= this._tracks.length) this._recTrack = 0;
     this._recHeldNotes.clear();
+  }
+
+  /* ── Engine state helpers ───────────────────────────────── */
+
+  _getEngineState(engine) {
+    return {
+      osc1: { ...engine._osc1 },
+      osc2: { ...engine._osc2 },
+      osc3: { ...engine._osc3 },
+      filter: {
+        type: engine._filterType,
+        model: engine._filterModel,
+        cutoff: engine._filterCutoff,
+        q: engine._filterQ,
+        gain: engine._filterGain,
+      },
+      adsr: engine.getADSR(),
+      masterVol: engine.getMasterVolume(),
+    };
+  }
+
+  _loadEngineState(engine, s) {
+    if (!s) return;
+    if (s.osc1) {
+      engine.setWaveform(1, s.osc1.waveform || 'sawtooth');
+      engine.setVolume(1, s.osc1.volume !== undefined ? s.osc1.volume : 0.5);
+      engine.setShape(1, s.osc1.shape || 0);
+      engine.setPitch(1, s.osc1.pitch || 0);
+      engine.setOctave(1, s.osc1.octave || 0);
+    }
+    if (s.osc2) {
+      engine.setWaveform(2, s.osc2.waveform || 'square');
+      engine.setVolume(2, s.osc2.volume !== undefined ? s.osc2.volume : 0);
+      engine.setShape(2, s.osc2.shape || 0);
+      engine.setPitch(2, s.osc2.pitch || 0);
+      engine.setOctave(2, s.osc2.octave || 0);
+    }
+    if (s.osc3) {
+      engine.setOsc3Mode(s.osc3.mode || 'string');
+      engine.setOsc3Volume(s.osc3.volume !== undefined ? s.osc3.volume : 0);
+      engine.setOsc3Octave(s.osc3.octave || 0);
+      engine.setOsc3Pitch(s.osc3.pitch || 0);
+      if (s.osc3.color !== undefined) engine.setOsc3Color(s.osc3.color);
+      if (s.osc3.damping !== undefined) engine.setOsc3Damping(s.osc3.damping);
+      if (s.osc3.ratio !== undefined) engine.setOsc3Ratio(s.osc3.ratio);
+      if (s.osc3.index !== undefined) engine.setOsc3Index(s.osc3.index);
+      if (s.osc3.morph !== undefined) engine.setOsc3Morph(s.osc3.morph);
+      if (s.osc3.vibrato !== undefined) engine.setOsc3Vibrato(s.osc3.vibrato);
+    }
+    if (s.filter) {
+      engine.setFilterType(s.filter.type || 'lowpass');
+      engine.setFilterModel(s.filter.model || 'svf12');
+      engine.setFilterCutoff(s.filter.cutoff !== undefined ? s.filter.cutoff : 20000);
+      engine.setFilterQ(s.filter.q !== undefined ? s.filter.q : 0.5);
+      engine.setFilterGain(s.filter.gain !== undefined ? s.filter.gain : 0);
+    }
+    if (s.adsr) engine.setADSR(s.adsr);
+    if (s.masterVol !== undefined) engine.setMasterVolume(s.masterVol);
   }
 }

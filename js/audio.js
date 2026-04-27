@@ -132,6 +132,20 @@ export class AudioEngine {
     this._buildRefFilters();
   }
 
+  /**
+   * Initialize this engine as a per-track engine using an existing AudioContext.
+   * Does NOT create effects chain or analyser — voices route to a simple masterGain.
+   * The caller is responsible for connecting masterGain to the track chain.
+   */
+  initWithContext(ctx) {
+    if (this._ctx) return;
+    this._ctx = ctx;
+    this._masterGain = ctx.createGain();
+    this._masterGain.gain.value = this._masterVol;
+    // No effects chain, no analyser — voices route directly to masterGain
+    this._buildRefFilters();
+  }
+
   /** Create reference filter chain for visualisation. */
   _buildRefFilters() {
     this._refFilters = this._makeFilterChain();
@@ -428,13 +442,14 @@ export class AudioEngine {
 
   /* --- voice management --- */
 
-  noteOn(frequency, midi, velocity = 1) {
+  noteOn(frequency, midi, velocity = 1, destination = null) {
     this._ensureContext();
     if (this._ctx.state === 'suspended') this._ctx.resume();
     if (this._voices.has(midi)) this._killVoice(midi);
 
     const vel = Math.max(0, Math.min(1, velocity));
     const now = this._ctx.currentTime;
+    const dest = destination || this._masterGain;
 
     // Shared envelope (scaled by velocity)
     const envGain = this._ctx.createGain();
@@ -446,7 +461,7 @@ export class AudioEngine {
     const filters = this._makeFilterChain();
     const { first, last } = this._chainFilters(filters);
     envGain.connect(first);
-    last.connect(this._masterGain);
+    last.connect(dest);
 
     // OSC 1
     const osc1 = this._ctx.createOscillator();
@@ -632,13 +647,14 @@ export class AudioEngine {
 
   /* --- effects --- */
 
-  setChorusEnabled(on) { this._ensureContext(); this._chorus.setEnabled(on); }
+  setChorusEnabled(on) { if (!this._chorus) return; this._ensureContext(); this._chorus.setEnabled(on); }
   getChorusEnabled() { return this._chorus ? this._chorus.getState().enabled : false; }
 
-  setChorusRate(hz) { this._ensureContext(); this._chorus.setRate(hz); }
+  setChorusRate(hz) { if (!this._chorus) return; this._ensureContext(); this._chorus.setRate(hz); }
   getChorusRate() { return this._chorus ? this._chorus.getState().rate : 1.5; }
 
   setChorusDepth(ms) {
+    if (!this._chorus) return;
     this._ensureContext();
     this._chorus.setDepth(ms);
   }
@@ -646,22 +662,22 @@ export class AudioEngine {
     return this._chorus ? this._chorus.getState().depth : 3.0;
   }
 
-  setChorusMix(pct) { this._ensureContext(); this._chorus.setMix(pct / 100); }
+  setChorusMix(pct) { if (!this._chorus) return; this._ensureContext(); this._chorus.setMix(pct / 100); }
   getChorusMix() { return this._chorus ? this._chorus.getState().mix * 100 : 50; }
 
-  setChorusWidth(pct) { this._ensureContext(); this._chorus.setWidth(pct / 100); }
+  setChorusWidth(pct) { if (!this._chorus) return; this._ensureContext(); this._chorus.setWidth(pct / 100); }
   getChorusWidth() { return this._chorus ? this._chorus.getState().width * 100 : 50; }
 
-  setChorusHPC(freq) { this._ensureContext(); this._chorus.setHPC(freq); }
+  setChorusHPC(freq) { if (!this._chorus) return; this._ensureContext(); this._chorus.setHPC(freq); }
   getChorusHPC() { return this._chorus ? this._chorus.getState().hpc : 200; }
 
-  setReverbEnabled(on) { this._ensureContext(); this._reverb.setEnabled(on); }
+  setReverbEnabled(on) { if (!this._reverb) return; this._ensureContext(); this._reverb.setEnabled(on); }
   getReverbEnabled() { return this._reverb ? this._reverb.getState().enabled : false; }
 
-  setReverbDecay(seconds) { this._ensureContext(); this._reverb.setDecay(seconds); }
+  setReverbDecay(seconds) { if (!this._reverb) return; this._ensureContext(); this._reverb.setDecay(seconds); }
   getReverbDecay() { return this._reverb ? this._reverb.getState().decay : 2.0; }
 
-  setReverbMix(pct) { this._ensureContext(); this._reverb.setMix(pct / 100); }
+  setReverbMix(pct) { if (!this._reverb) return; this._ensureContext(); this._reverb.setMix(pct / 100); }
   getReverbMix() { return this._reverb ? this._reverb.getState().mix * 100 : 30; }
 
   /* ── Patch state serialization ── */
