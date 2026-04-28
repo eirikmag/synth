@@ -107,11 +107,26 @@ function updateVisualizerDrawMode() {
 
 /* --- Audio note helpers --- */
 
+function _isSampleTrack() {
+  if (activeTrackIdx < 0) return false;
+  const info = seq.getTrack(activeTrackIdx);
+  return info && info.sourceType === 'sample';
+}
+
 function audioNoteOn(freq, midi, name, vel = 1) {
   ensureVisualizer();
   if (seq.recording && seq.playing) {
     seq.recordNote(midi, vel);
   }
+
+  // Sample track: trigger via sample player, not synth engine
+  if (_isSampleTrack()) {
+    seq.triggerSample(activeTrackIdx, midi, vel);
+    ui.showNote(name);
+    ui.highlightKey(midi);
+    return;
+  }
+
   // Route through main audio engine's masterGain for global effects (drive, ring, noise)
   const useMainChain = activeEngine !== audio;
   const dest = useMainChain ? audio.getMasterGainNode() : undefined;
@@ -125,6 +140,16 @@ function audioNoteOff(midi) {
   if (seq.recording && seq.playing) {
     seq.recordNoteOff(midi);
   }
+
+  // Sample track: stop voice
+  if (_isSampleTrack()) {
+    const info = seq.getTrack(activeTrackIdx);
+    if (info) samplePlayer.stop(info.sourceConfig.sampleName, midi);
+    ui.releaseKey(midi);
+    ui.clearNote();
+    return;
+  }
+
   activeEngine.noteOff(midi);
   ui.releaseKey(midi);
   if (activeEngine.activeVoiceCount === 0) {
@@ -347,9 +372,13 @@ function handleMIDIMessage(e) {
       seq.setStepVel(t, s, velocity / 127);
       _updateMidiEditCellDisplay();
       // Also audition the note so the user hears what they entered
-      const audDest = (activeEngine !== audio) ? audio.getMasterGainNode() : undefined;
-      activeEngine.noteOn(midiToFreq(note), note, velocity / 127, audDest);
-      setTimeout(() => activeEngine.noteOff(note), 200);
+      if (_isSampleTrack()) {
+        seq.triggerSample(activeTrackIdx, note, velocity / 127);
+      } else {
+        const audDest = (activeEngine !== audio) ? audio.getMasterGainNode() : undefined;
+        activeEngine.noteOn(midiToFreq(note), note, velocity / 127, audDest);
+        setTimeout(() => activeEngine.noteOff(note), 200);
+      }
       return;
     }
     noteOn(midiToFreq(note), note, midiToName(note), velocity / 127);
@@ -1175,19 +1204,67 @@ function buildDrumSliders(container, trackIdx) {
 }
 
 function buildSampleParamsPanel(container, trackIdx, info) {
+  const cfg = info.sourceConfig;
+  const sampleName = cfg.sampleName;
+
   const section = document.createElement('div');
   section.className = 'track-params-section';
+  section.style.minWidth = '320px';
   const title = document.createElement('div');
   title.className = 'track-params-section-label';
   title.textContent = 'CAST';
   section.appendChild(title);
 
+  // ── File row ──
   const fileRow = document.createElement('div');
   fileRow.className = 'track-params-row';
   const fileLabel = document.createElement('label');
-  fileLabel.textContent = info.sourceConfig.sampleName || 'None';
+  fileLabel.textContent = sampleName || 'No sample';
   fileLabel.style.width = 'auto';
+  fileLabel.style.flex = '1';
   fileRow.appendChild(fileLabel);
+
+  // Kit browser select
+  const kitSelect = document.createElement('select');
+  kitSelect.style.cssText = 'background:#2a2a3a;color:#aaa;border:1px solid #444;padding:3px 6px;border-radius:3px;font-size:10px;max-width:120px;cursor:pointer;';
+  const defaultOpt = document.createElement('option');
+  defaultOpt.value = '';
+  defaultOpt.textContent = 'KITS';
+  defaultOpt.disabled = true;
+  defaultOpt.selected = true;
+  kitSelect.appendChild(defaultOpt);
+  // Populate kits async
+  samplePlayer.fetchKitManifest().then(kits => {
+    for (const kit of kits) {
+      const group = document.createElement('optgroup');
+      group.label = kit.name;
+      for (const file of kit.samples) {
+        const opt = document.createElement('option');
+        opt.value = `samples/kits/${kit.name}/${file}`;
+        opt.textContent = file.replace(/\.\w+$/, '');
+        opt.dataset.sampleName = file;
+        group.appendChild(opt);
+      }
+      kitSelect.appendChild(group);
+    }
+  });
+  kitSelect.addEventListener('change', async () => {
+    const url = kitSelect.value;
+    const opt = kitSelect.selectedOptions[0];
+    const name = opt.dataset.sampleName;
+    if (!url || !name) return;
+    kitSelect.disabled = true;
+    try {
+      const ctx = audio.context;
+      await samplePlayer.loadUrl(ctx, url, name);
+      seq.setSampleName(trackIdx, name);
+      selectTrack(trackIdx);
+    } finally {
+      kitSelect.disabled = false;
+    }
+  });
+  fileRow.appendChild(kitSelect);
+
   const fileBtn = document.createElement('button');
   fileBtn.textContent = 'LOAD';
   fileBtn.style.cssText = 'background:#5bc0eb;color:#111;border:none;padding:4px 10px;border-radius:3px;cursor:pointer;font-weight:600;font-size:10px;';
@@ -1200,29 +1277,288 @@ function buildSampleParamsPanel(container, trackIdx, info) {
       const ctx = audio.context;
       const name = await samplePlayer.loadFile(ctx, input.files[0]);
       seq.setSampleName(trackIdx, name);
-      fileLabel.textContent = name;
-      const grid = document.getElementById('seq-grid');
-      if (grid) {
-        const lbl = grid.querySelector(`.track-row[data-track="${trackIdx}"] .track-row-label`);
-        if (lbl) lbl.textContent = name;
-      }
+      // Rebuild the panel to show waveform
+      selectTrack(trackIdx);
     });
     input.click();
   });
   fileRow.appendChild(fileBtn);
+  const audBtn = document.createElement('button');
+  audBtn.textContent = '\u25B6';
+  audBtn.style.cssText = 'background:#5bc0eb;color:#111;border:none;padding:4px 8px;border-radius:3px;cursor:pointer;font-weight:600;font-size:11px;margin-left:4px;';
+  audBtn.addEventListener('click', () => seq.triggerSample(trackIdx));
+  fileRow.appendChild(audBtn);
   section.appendChild(fileRow);
 
-  // Audition
-  const audRow = document.createElement('div');
-  audRow.className = 'track-params-row';
-  const aud = document.createElement('button');
-  aud.textContent = '\u25B6 PLAY';
-  aud.style.cssText = 'background:#5bc0eb;color:#111;border:none;padding:4px 12px;border-radius:3px;cursor:pointer;font-weight:600;font-size:11px;';
-  aud.addEventListener('click', () => seq.triggerSample(trackIdx));
-  audRow.appendChild(aud);
-  section.appendChild(audRow);
+  // ── Waveform display ──
+  const waveWrap = document.createElement('div');
+  waveWrap.className = 'cast-waveform-wrap';
+  const canvas = document.createElement('canvas');
+  waveWrap.appendChild(canvas);
+  section.appendChild(waveWrap);
+
+  // ── Mode buttons ──
+  const modeBtns = document.createElement('div');
+  modeBtns.className = 'cast-mode-btns';
+  ['oneshot', 'slicer'].forEach(m => {
+    const b = document.createElement('button');
+    b.className = 'cast-mode-btn' + (cfg.mode === m ? ' active' : '');
+    b.textContent = m.toUpperCase();
+    b.addEventListener('click', () => {
+      cfg.mode = m;
+      seq.syncSampleConfig(trackIdx);
+      modeBtns.querySelectorAll('.cast-mode-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      oneshotControls.style.display = m === 'oneshot' ? '' : 'none';
+      slicerControls.style.display = m === 'slicer' ? '' : 'none';
+      drawWaveform();
+    });
+    modeBtns.appendChild(b);
+  });
+  section.appendChild(modeBtns);
+
+  // ── Oneshot controls ──
+  const oneshotControls = document.createElement('div');
+  oneshotControls.style.display = cfg.mode === 'oneshot' ? '' : 'none';
+
+  // Root note
+  const rootRow = document.createElement('div');
+  rootRow.className = 'track-params-row';
+  const rootLbl = document.createElement('label');
+  rootLbl.textContent = 'Root';
+  rootRow.appendChild(rootLbl);
+  const rootInput = document.createElement('input');
+  rootInput.type = 'range';
+  rootInput.min = 0; rootInput.max = 127; rootInput.value = cfg.rootNote;
+  const rootVal = document.createElement('span');
+  rootVal.className = 'param-value';
+  rootVal.textContent = midiToName(cfg.rootNote);
+  rootInput.addEventListener('input', () => {
+    cfg.rootNote = parseInt(rootInput.value);
+    rootVal.textContent = midiToName(cfg.rootNote);
+    seq.syncSampleConfig(trackIdx);
+  });
+  rootRow.appendChild(rootInput);
+  rootRow.appendChild(rootVal);
+  oneshotControls.appendChild(rootRow);
+
+  // Start
+  const startRow = document.createElement('div');
+  startRow.className = 'track-params-row';
+  const startLbl = document.createElement('label');
+  startLbl.textContent = 'Start';
+  startRow.appendChild(startLbl);
+  const startInput = document.createElement('input');
+  startInput.type = 'range';
+  startInput.min = 0; startInput.max = 1000; startInput.value = Math.round(cfg.start * 1000);
+  const startVal = document.createElement('span');
+  startVal.className = 'param-value';
+  startVal.textContent = Math.round(cfg.start * 100) + '%';
+  startInput.addEventListener('input', () => {
+    cfg.start = parseInt(startInput.value) / 1000;
+    startVal.textContent = Math.round(cfg.start * 100) + '%';
+    seq.syncSampleConfig(trackIdx);
+    drawWaveform();
+  });
+  startRow.appendChild(startInput);
+  startRow.appendChild(startVal);
+  oneshotControls.appendChild(startRow);
+
+  // Length
+  const lenRow = document.createElement('div');
+  lenRow.className = 'track-params-row';
+  const lenLbl = document.createElement('label');
+  lenLbl.textContent = 'Length';
+  lenRow.appendChild(lenLbl);
+  const lenInput = document.createElement('input');
+  lenInput.type = 'range';
+  lenInput.min = 1; lenInput.max = 1000; lenInput.value = Math.round(cfg.length * 1000);
+  const lenVal = document.createElement('span');
+  lenVal.className = 'param-value';
+  lenVal.textContent = Math.round(cfg.length * 100) + '%';
+  lenInput.addEventListener('input', () => {
+    cfg.length = parseInt(lenInput.value) / 1000;
+    lenVal.textContent = Math.round(cfg.length * 100) + '%';
+    seq.syncSampleConfig(trackIdx);
+    drawWaveform();
+  });
+  lenRow.appendChild(lenInput);
+  lenRow.appendChild(lenVal);
+  oneshotControls.appendChild(lenRow);
+
+  section.appendChild(oneshotControls);
+
+  // ── Slicer controls ──
+  const slicerControls = document.createElement('div');
+  slicerControls.style.display = cfg.mode === 'slicer' ? '' : 'none';
+
+  // Root note for slicer
+  const sRootRow = document.createElement('div');
+  sRootRow.className = 'track-params-row';
+  const sRootLbl = document.createElement('label');
+  sRootLbl.textContent = 'Root';
+  sRootRow.appendChild(sRootLbl);
+  const sRootInput = document.createElement('input');
+  sRootInput.type = 'range';
+  sRootInput.min = 0; sRootInput.max = 127; sRootInput.value = cfg.rootNote;
+  const sRootVal = document.createElement('span');
+  sRootVal.className = 'param-value';
+  sRootVal.textContent = midiToName(cfg.rootNote);
+  sRootInput.addEventListener('input', () => {
+    cfg.rootNote = parseInt(sRootInput.value);
+    sRootVal.textContent = midiToName(cfg.rootNote);
+    rootInput.value = cfg.rootNote;
+    rootVal.textContent = sRootVal.textContent;
+    seq.syncSampleConfig(trackIdx);
+  });
+  sRootRow.appendChild(sRootInput);
+  sRootRow.appendChild(sRootVal);
+  slicerControls.appendChild(sRootRow);
+
+  // Auto-slice
+  const autoRow = document.createElement('div');
+  autoRow.className = 'track-params-row';
+  const autoLbl = document.createElement('label');
+  autoLbl.textContent = 'Auto';
+  autoRow.appendChild(autoLbl);
+  [4, 8, 16, 32].forEach(n => {
+    const b = document.createElement('button');
+    b.textContent = n;
+    b.style.cssText = 'background:#2a2a3a;border:1px solid #444;color:#aaa;font-size:10px;padding:3px 8px;border-radius:3px;cursor:pointer;';
+    b.addEventListener('click', () => {
+      samplePlayer.autoSlice(sampleName, n);
+      const sc = samplePlayer.getConfig(sampleName);
+      if (sc) cfg.slices = sc.slices;
+      seq.syncSampleConfig(trackIdx);
+      drawWaveform();
+      renderSliceList();
+    });
+    autoRow.appendChild(b);
+  });
+  slicerControls.appendChild(autoRow);
+
+  // Slice list
+  const sliceListEl = document.createElement('div');
+  sliceListEl.className = 'cast-slice-list';
+  slicerControls.appendChild(sliceListEl);
+
+  function renderSliceList() {
+    sliceListEl.innerHTML = '';
+    cfg.slices.forEach((s, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'cast-slice-chip';
+      chip.textContent = `${i + 1}: ${Math.round(s.start * 100)}–${Math.round(s.end * 100)}%`;
+      chip.title = 'Click to remove';
+      chip.addEventListener('click', () => {
+        samplePlayer.removeSlice(sampleName, i);
+        const sc = samplePlayer.getConfig(sampleName);
+        if (sc) cfg.slices = sc.slices;
+        seq.syncSampleConfig(trackIdx);
+        drawWaveform();
+        renderSliceList();
+      });
+      sliceListEl.appendChild(chip);
+    });
+  }
+  renderSliceList();
+
+  section.appendChild(slicerControls);
+
+  // ── Click-on-waveform to add slice (slicer mode) ──
+  waveWrap.addEventListener('click', (e) => {
+    if (cfg.mode !== 'slicer' || !sampleName) return;
+    const rect = waveWrap.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    samplePlayer.addSlicePoint(sampleName, Math.max(0, Math.min(1, pos)));
+    const sc = samplePlayer.getConfig(sampleName);
+    if (sc) cfg.slices = sc.slices;
+    seq.syncSampleConfig(trackIdx);
+    drawWaveform();
+    renderSliceList();
+  });
 
   container.appendChild(section);
+
+  // ── Draw waveform + overlays ──
+  function drawWaveform() {
+    const buf = sampleName ? samplePlayer.getBuffer(sampleName) : null;
+    const w = canvas.parentElement.clientWidth || 320;
+    const h = canvas.parentElement.clientHeight || 80;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx2d = canvas.getContext('2d');
+    ctx2d.clearRect(0, 0, w, h);
+
+    if (!buf) {
+      ctx2d.fillStyle = '#555';
+      ctx2d.font = '11px sans-serif';
+      ctx2d.textAlign = 'center';
+      ctx2d.fillText('No sample loaded', w / 2, h / 2 + 4);
+      return;
+    }
+
+    // Draw waveform
+    const data = buf.getChannelData(0);
+    const step = Math.max(1, Math.floor(data.length / w));
+    ctx2d.beginPath();
+    ctx2d.strokeStyle = '#5bc0eb';
+    ctx2d.lineWidth = 1;
+    for (let x = 0; x < w; x++) {
+      const idx = Math.floor((x / w) * data.length);
+      let min = 1, max = -1;
+      for (let j = 0; j < step; j++) {
+        const val = data[idx + j] || 0;
+        if (val < min) min = val;
+        if (val > max) max = val;
+      }
+      const yMin = ((1 - max) / 2) * h;
+      const yMax = ((1 - min) / 2) * h;
+      ctx2d.moveTo(x + 0.5, yMin);
+      ctx2d.lineTo(x + 0.5, yMax);
+    }
+    ctx2d.stroke();
+
+    // Draw overlays based on mode
+    if (cfg.mode === 'oneshot') {
+      // Start/length region
+      const x1 = cfg.start * w;
+      const x2 = Math.min(1, cfg.start + cfg.length) * w;
+      ctx2d.fillStyle = 'rgba(91, 192, 235, 0.15)';
+      ctx2d.fillRect(x1, 0, x2 - x1, h);
+      ctx2d.strokeStyle = 'rgba(91, 192, 235, 0.6)';
+      ctx2d.lineWidth = 1;
+      ctx2d.beginPath();
+      ctx2d.moveTo(x1, 0); ctx2d.lineTo(x1, h);
+      ctx2d.moveTo(x2, 0); ctx2d.lineTo(x2, h);
+      ctx2d.stroke();
+    } else {
+      // Slice lines
+      ctx2d.strokeStyle = '#5bc0eb';
+      ctx2d.lineWidth = 1;
+      ctx2d.setLineDash([2, 2]);
+      for (const s of cfg.slices) {
+        if (s.start > 0) {
+          const x = s.start * w;
+          ctx2d.beginPath();
+          ctx2d.moveTo(x, 0);
+          ctx2d.lineTo(x, h);
+          ctx2d.stroke();
+        }
+      }
+      ctx2d.setLineDash([]);
+      // Number the slices
+      ctx2d.fillStyle = 'rgba(91, 192, 235, 0.7)';
+      ctx2d.font = '9px sans-serif';
+      ctx2d.textAlign = 'center';
+      cfg.slices.forEach((s, i) => {
+        const cx = ((s.start + s.end) / 2) * w;
+        ctx2d.fillText(i + 1, cx, 10);
+      });
+    }
+  }
+
+  // Initial draw after DOM append
+  requestAnimationFrame(drawWaveform);
 }
 
 /* ── Grid building ── */

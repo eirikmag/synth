@@ -85,7 +85,7 @@ function makeTrack(sourceType = 'synth', name = '', config = null, pages = 1, nu
   } else if (sourceType === 'drum') {
     srcCfg = { part: 'kick', kit: '909', params: getDefaultDrumParams('kick', '909') };
   } else if (sourceType === 'sample') {
-    srcCfg = { sampleName: null };
+    srcCfg = { sampleName: null, mode: 'oneshot', rootNote: 60, start: 0, length: 1, slices: [] };
   } else {
     srcCfg = {};
   }
@@ -362,7 +362,7 @@ export class Sequencer {
     } else if (sourceType === 'drum') {
       t.sourceConfig = { part: 'kick', kit: '909', params: getDefaultDrumParams('kick', '909') };
     } else if (sourceType === 'sample') {
-      t.sourceConfig = { sampleName: null };
+      t.sourceConfig = { sampleName: null, mode: 'oneshot', rootNote: 60, start: 0, length: 1, slices: [] };
     } else {
       t.sourceConfig = {};
     }
@@ -462,7 +462,33 @@ export class Sequencer {
     const t = this._tracks[idx];
     if (!t || t.sourceType !== 'sample') return;
     t.sourceConfig.sampleName = name;
-    t.name = name || 'Sample';
+    t.name = name || 'Cast';
+    // Sync config from SamplePlayer if it exists
+    if (this._samplePlayer) {
+      const cfg = this._samplePlayer.getConfig(name);
+      if (cfg) {
+        t.sourceConfig.mode = cfg.mode;
+        t.sourceConfig.rootNote = cfg.rootNote;
+        t.sourceConfig.start = cfg.start;
+        t.sourceConfig.length = cfg.length;
+        t.sourceConfig.slices = cfg.slices;
+      }
+    }
+  }
+
+  /** Sync track sourceConfig back to SamplePlayer config. */
+  syncSampleConfig(idx) {
+    const t = this._tracks[idx];
+    if (!t || t.sourceType !== 'sample' || !this._samplePlayer) return;
+    const name = t.sourceConfig.sampleName;
+    if (!name) return;
+    this._samplePlayer.setConfig(name, {
+      mode: t.sourceConfig.mode,
+      rootNote: t.sourceConfig.rootNote,
+      start: t.sourceConfig.start,
+      length: t.sourceConfig.length,
+      slices: t.sourceConfig.slices,
+    });
   }
 
   /* ── Step data ──────────────────────────────────────────── */
@@ -545,14 +571,22 @@ export class Sequencer {
     playDrumPart(ctx, dest, t.sourceConfig.part, t.volume, t.sourceConfig.params);
   }
 
-  triggerSample(idx) {
+  triggerSample(idx, midi = null, velocity = 1) {
     const t = this._tracks[idx];
     if (!t || t.sourceType !== 'sample' || !this._samplePlayer) return;
     const ctx = this._getCtx && this._getCtx();
     if (!ctx) return;
     const dest = this._ensureTrackGain(idx);
     if (!dest) return;
-    this._samplePlayer.play(ctx, dest, t.sourceConfig.sampleName, t.volume);
+    const note = midi !== null ? midi : t.sourceConfig.rootNote;
+    this._samplePlayer.play(ctx, dest, t.sourceConfig.sampleName, velocity * t.volume, note);
+  }
+
+  /** Stop a sample voice. */
+  stopSample(idx, midi) {
+    const t = this._tracks[idx];
+    if (!t || t.sourceType !== 'sample' || !this._samplePlayer) return;
+    this._samplePlayer.stop(t.sourceConfig.sampleName, midi);
   }
 
   /* ── Pattern operations ─────────────────────────────────── */
@@ -874,7 +908,8 @@ export class Sequencer {
     const dest = this.getTrackInput(idx);
     if (!dest) return;
     const vel = track.vels[step] * track.volume;
-    this._samplePlayer.play(ctx, dest, track.sourceConfig.sampleName, vel);
+    const midi = track.notes[step];
+    this._samplePlayer.play(ctx, dest, track.sourceConfig.sampleName, vel, midi);
   }
 
   /* ── State serialization ────────────────────────────────── */

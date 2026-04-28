@@ -1,0 +1,23 @@
+{
+  "kits": [
+    {
+      "name": "909",
+      "samples": [
+        "clap-1.wav",
+        "clap-2.wav",
+        "cymbal.wav",
+        "hihat-close.wav",
+        "hihat-closed.wav",
+        "hihat-open-1.wav",
+        "hihat-open-2.wav",
+        "kick-short.wav",
+        "kick.wav",
+        "ride.wav",
+        "rim.wav",
+        "snare.wav",
+        "tom-h.wav",
+        "tom-l.wav"
+      ]
+    }
+  ]
+}
