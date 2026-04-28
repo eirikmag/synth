@@ -1224,46 +1224,70 @@ function buildSampleParamsPanel(container, trackIdx, info) {
   fileLabel.style.flex = '1';
   fileRow.appendChild(fileLabel);
 
-  // Kit browser select
-  const kitSelect = document.createElement('select');
-  kitSelect.style.cssText = 'background:#2a2a3a;color:#aaa;border:1px solid #444;padding:3px 6px;border-radius:3px;font-size:10px;max-width:120px;cursor:pointer;';
-  const defaultOpt = document.createElement('option');
-  defaultOpt.value = '';
-  defaultOpt.textContent = 'KITS';
-  defaultOpt.disabled = true;
-  defaultOpt.selected = true;
-  kitSelect.appendChild(defaultOpt);
-  // Populate kits async
-  samplePlayer.fetchKitManifest().then(kits => {
-    for (const kit of kits) {
-      const group = document.createElement('optgroup');
-      group.label = kit.name;
-      for (const file of kit.samples) {
-        const opt = document.createElement('option');
-        opt.value = `samples/kits/${kit.name}/${file}`;
-        opt.textContent = file.replace(/\.\w+$/, '');
-        opt.dataset.sampleName = file;
-        group.appendChild(opt);
+  // Kit browser dropdown (collapsible folders)
+  const kitWrap = document.createElement('div');
+  kitWrap.className = 'kit-browser';
+  const kitBtn = document.createElement('button');
+  kitBtn.className = 'kit-browser-btn';
+  kitBtn.textContent = 'KITS';
+  kitWrap.appendChild(kitBtn);
+  const kitMenu = document.createElement('div');
+  kitMenu.className = 'kit-browser-menu';
+  kitWrap.appendChild(kitMenu);
+
+  let kitMenuOpen = false;
+  function toggleKitMenu(show) {
+    kitMenuOpen = typeof show === 'boolean' ? show : !kitMenuOpen;
+    kitMenu.style.display = kitMenuOpen ? 'block' : 'none';
+  }
+  kitBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleKitMenu();
+  });
+  // Close on outside click
+  const closeKit = () => toggleKitMenu(false);
+  document.addEventListener('click', closeKit);
+  // Clean up listener when panel rebuilds
+  const origRemove = section.remove.bind(section);
+  section.remove = () => { document.removeEventListener('click', closeKit); origRemove(); };
+
+  samplePlayer.fetchKitManifest().then(folders => {
+    for (const folder of folders) {
+      const folderEl = document.createElement('div');
+      folderEl.className = 'kit-folder';
+      const folderHead = document.createElement('div');
+      folderHead.className = 'kit-folder-head';
+      folderHead.innerHTML = '<span class="kit-folder-arrow">&#9654;</span> ' + folder.name;
+      const folderBody = document.createElement('div');
+      folderBody.className = 'kit-folder-body';
+      folderBody.style.display = 'none';
+      folderHead.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = folderBody.style.display === 'none';
+        folderBody.style.display = open ? 'block' : 'none';
+        folderHead.querySelector('.kit-folder-arrow').innerHTML = open ? '&#9660;' : '&#9654;';
+      });
+      for (const file of folder.samples) {
+        const item = document.createElement('div');
+        item.className = 'kit-sample-item';
+        item.textContent = file.replace(/\.\w+$/, '');
+        item.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          toggleKitMenu(false);
+          const url = `samples/${folder.path}/${file}`;
+          const ctx = audio.context;
+          await samplePlayer.loadUrl(ctx, url, file);
+          seq.setSampleName(trackIdx, file);
+          selectTrack(trackIdx);
+        });
+        folderBody.appendChild(item);
       }
-      kitSelect.appendChild(group);
+      folderEl.appendChild(folderHead);
+      folderEl.appendChild(folderBody);
+      kitMenu.appendChild(folderEl);
     }
   });
-  kitSelect.addEventListener('change', async () => {
-    const url = kitSelect.value;
-    const opt = kitSelect.selectedOptions[0];
-    const name = opt.dataset.sampleName;
-    if (!url || !name) return;
-    kitSelect.disabled = true;
-    try {
-      const ctx = audio.context;
-      await samplePlayer.loadUrl(ctx, url, name);
-      seq.setSampleName(trackIdx, name);
-      selectTrack(trackIdx);
-    } finally {
-      kitSelect.disabled = false;
-    }
-  });
-  fileRow.appendChild(kitSelect);
+  fileRow.appendChild(kitWrap);
 
   const fileBtn = document.createElement('button');
   fileBtn.textContent = 'LOAD';

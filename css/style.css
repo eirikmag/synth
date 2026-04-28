@@ -1170,6 +1170,71 @@ body {
   color: #e03040;
 }
 
+/* ── Kit browser dropdown ── */
+.kit-browser {
+  position: relative;
+  display: inline-block;
+}
+.kit-browser-btn {
+  background: #2a2a3a;
+  color: #aaa;
+  border: 1px solid #444;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+}
+.kit-browser-btn:hover {
+  border-color: #5bc0eb;
+  color: #ccc;
+}
+.kit-browser-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 200;
+  background: #1c1c26;
+  border: 1px solid #444;
+  border-radius: 4px;
+  min-width: 180px;
+  max-height: 280px;
+  overflow-y: auto;
+  box-shadow: 0 6px 20px rgba(0,0,0,.5);
+  margin-top: 4px;
+}
+.kit-folder-head {
+  padding: 6px 10px;
+  color: #ccc;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid #2a2a36;
+}
+.kit-folder-head:hover {
+  background: #22222e;
+}
+.kit-folder-arrow {
+  display: inline-block;
+  font-size: 8px;
+  width: 12px;
+  color: #5bc0eb;
+}
+.kit-sample-item {
+  padding: 5px 10px 5px 24px;
+  color: #999;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kit-sample-item:hover {
+  background: #5bc0eb22;
+  color: #5bc0eb;
+}
+
 /* ===== Design Tokens ===== */
 :root {
   --sp-xs: 4px;

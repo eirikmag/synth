@@ -1,7 +1,8 @@
 {
-  "kits": [
+  "folders": [
     {
-      "name": "909",
+      "name": "kits/909",
+      "path": "kits/909",
       "samples": [
         "clap-1.wav",
         "clap-2.wav",
@@ -17,6 +18,16 @@
         "snare.wav",
         "tom-h.wav",
         "tom-l.wav"
+      ]
+    },
+    {
+      "name": "oneshots",
+      "path": "oneshots",
+      "samples": [
+        "cw_amen01_175.wav",
+        "cw_amen05_158.wav",
+        "cw_amen09_175.wav",
+        "cw_amen13_173.wav"
       ]
     }
   ]

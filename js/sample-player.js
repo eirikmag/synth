@@ -54,9 +54,9 @@ export class SamplePlayer {
   async fetchKitManifest() {
     if (this._kitManifest) return this._kitManifest;
     try {
-      const resp = await fetch('samples/kits/manifest.json');
+      const resp = await fetch('samples/manifest.json');
       if (!resp.ok) return [];
-      this._kitManifest = (await resp.json()).kits || [];
+      this._kitManifest = (await resp.json()).folders || [];
     } catch {
       this._kitManifest = [];
     }
