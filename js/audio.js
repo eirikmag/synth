@@ -13,7 +13,7 @@ import { ChorusEffect, ReverbEffect } from './effects.js';
 import { ALT_MODES, createStringVoice, createFMVoice, createFormantVoice } from './alt-osc.js';
 
 const WAVEFORMS = ['sine', 'square', 'sawtooth', 'triangle'];
-const FILTER_TYPES = ['lowpass', 'highpass', 'bandpass', 'notch', 'lowshelf', 'highshelf'];
+const FILTER_TYPES = ['lowpass', 'highpass', 'bandpass', 'notch', 'lowshelf', 'highshelf', 'comb'];
 
 /**
  * Filter models -- only active when type is 'lowpass'.
@@ -103,8 +103,20 @@ export class AudioEngine {
     this._sustain  = 0.7;
     this._release  = 0.3;
 
+    // Filter envelope ADSR + amount (-1 to +1)
+    this._fenvAttack  = 0.01;
+    this._fenvDecay   = 0.3;
+    this._fenvSustain = 0;
+    this._fenvRelease = 0.3;
+    this._fenvAmount  = 0; // bipolar: -1..+1, scales in octaves
+
     // Master volume
     this._masterVol = 0.8;
+
+    // Noise / Ring Mod / Drive (0–1 amounts)
+    this._noiseLevel = 0;
+    this._ringModLevel = 0;
+    this._driveLevel = 0;
 
     // Effects (created lazily in _ensureContext)
     this._chorus = null;
@@ -121,10 +133,49 @@ export class AudioEngine {
     this._analyser = this._ctx.createAnalyser();
     this._analyser.fftSize = 2048;
 
-    // Effects chain: masterGain → chorus → reverb → analyser → destination
+    // Effects chain: masterGain → drive → ringMod(dry/wet) → chorus → reverb → analyser → destination
     this._chorus = new ChorusEffect(this._ctx);
     this._reverb = new ReverbEffect(this._ctx);
-    this._masterGain.connect(this._chorus.input);
+
+    // Drive (waveshaper)
+    this._driveShaper = this._ctx.createWaveShaper();
+    this._driveShaper.oversample = '4x';
+    this._driveMakeup = this._ctx.createGain();
+    this._updateDriveCurve();
+
+    // Ring modulator: sine oscillator → ringModGain (depth), mixed with dry
+    this._ringOsc = this._ctx.createOscillator();
+    this._ringOsc.type = 'sine';
+    this._ringOsc.frequency.value = 200;
+    this._ringModGain = this._ctx.createGain();
+    this._ringModGain.gain.value = 0; // modulation depth
+    this._ringDryGain = this._ctx.createGain();
+    this._ringDryGain.gain.value = 1;
+    this._ringWetNode = this._ctx.createGain();
+    this._ringWetNode.gain.value = 0; // base 0 — only ring osc drives this node's gain
+    this._ringMerge = this._ctx.createGain();
+    this._ringMerge.gain.value = 1;
+    // dry path
+    this._driveMakeup.connect(this._ringDryGain);
+    this._ringDryGain.connect(this._ringMerge);
+    // wet path: signal * ringOsc
+    this._driveMakeup.connect(this._ringWetNode);
+    this._ringOsc.connect(this._ringModGain);
+    this._ringModGain.connect(this._ringWetNode.gain); // AM: osc modulates gain
+    this._ringWetNode.connect(this._ringMerge);
+    this._ringOsc.start();
+    this._updateRingMod();
+
+    // Noise: shared buffer created once, per-voice sources spawned in noteOn()
+    const noiseLen = this._ctx.sampleRate * 2;
+    this._noiseBuf = this._ctx.createBuffer(1, noiseLen, this._ctx.sampleRate);
+    const noiseData = this._noiseBuf.getChannelData(0);
+    for (let i = 0; i < noiseLen; i++) noiseData[i] = Math.random() * 2 - 1;
+
+    // Wire: masterGain → driveShaper → driveMakeup → [ringMod] → ringMerge → chorus → ...
+    this._masterGain.connect(this._driveShaper);
+    this._driveShaper.connect(this._driveMakeup);
+    this._ringMerge.connect(this._chorus.input);
     this._chorus.output.connect(this._reverb.input);
     this._reverb.output.connect(this._analyser);
     this._analyser.connect(this._ctx.destination);
@@ -142,6 +193,11 @@ export class AudioEngine {
     this._ctx = ctx;
     this._masterGain = ctx.createGain();
     this._masterGain.gain.value = this._masterVol;
+    // Noise buffer (shared with per-voice sources spawned in noteOn)
+    const noiseLen = ctx.sampleRate * 2;
+    this._noiseBuf = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
+    const nd = this._noiseBuf.getChannelData(0);
+    for (let i = 0; i < noiseLen; i++) nd[i] = Math.random() * 2 - 1;
     // No effects chain, no analyser — voices route directly to masterGain
     this._buildRefFilters();
   }
@@ -154,6 +210,7 @@ export class AudioEngine {
   /** How many stages does the current config need? */
   _stageCount() {
     if (this._filterModel === 'cst') return CST_NUM_BANDS;
+    if (this._filterType === 'comb') return 1;
     if (this._filterType === 'lowpass' && FILTER_MODELS[this._filterModel]) {
       return FILTER_MODELS[this._filterModel].stages;
     }
@@ -171,6 +228,7 @@ export class AudioEngine {
   /** Create an array of BiquadFilterNodes configured for current settings. */
   _makeFilterChain() {
     if (this._filterModel === 'cst') return this._makeCSTChain();
+    if (this._filterType === 'comb') return this._makeCombChain();
     const stages = this._stageCount();
     const qFactors = this._qFactors();
     const filters = [];
@@ -187,6 +245,10 @@ export class AudioEngine {
 
   /** Connect an array of filters in series; return { first, last }. */
   _chainFilters(filters) {
+    // Comb wrapper: use .input/.output instead of connect
+    if (filters.length === 1 && filters[0]._isComb) {
+      return { first: filters[0].input, last: filters[0].output };
+    }
     for (let i = 1; i < filters.length; i++) {
       filters[i - 1].connect(filters[i]);
     }
@@ -197,6 +259,10 @@ export class AudioEngine {
   _applyFilterParams(filters, time) {
     if (this._filterModel === 'cst') {
       this._applyCSTParams(filters, time);
+      return;
+    }
+    if (this._filterType === 'comb') {
+      this._applyCombParams(filters, time);
       return;
     }
     const qFactors = this._qFactors();
@@ -228,7 +294,27 @@ export class AudioEngine {
   }
   getMasterVolume() { return this._masterVol; }
 
+  /** Expose the masterGain AudioNode so other engines can route through this chain. */
+  getMasterGainNode() {
+    this._ensureContext();
+    return this._masterGain;
+  }
+
   _cfg(n) { return n === 2 ? this._osc2 : this._osc1; }
+
+  /** Return both oscillator configs for waveform preview. */
+  getOscPreviewConfig() {
+    return {
+      osc1: { waveform: this._osc1.waveform, volume: this._osc1.volume, shape: this._osc1.shape },
+      osc2: { waveform: this._osc2.waveform, volume: this._osc2.volume, shape: this._osc2.shape },
+      osc3: {
+        mode: this._osc3.mode, volume: this._osc3.volume,
+        ratio: this._osc3.ratio, index: this._osc3.index,
+        color: this._osc3.color, damping: this._osc3.damping,
+        morph: this._osc3.morph,
+      },
+    };
+  }
 
   /* --- oscillator parameters --- */
 
@@ -242,7 +328,7 @@ export class AudioEngine {
 
   setVolume(oscNum, value) {
     const cfg = this._cfg(oscNum);
-    cfg.volume = Math.max(0, Math.min(1, value));
+    cfg.volume = Math.max(0, Math.min(2, value));
     const gk = oscNum === 2 ? 'osc2Gain' : 'osc1Gain';
     if (this._ctx) {
       for (const v of this._voices.values()) {
@@ -356,7 +442,16 @@ export class AudioEngine {
     const now = this._ctx.currentTime;
     for (const v of this._voices.values()) {
       // Disconnect old
-      v.filters.forEach(f => { try { f.disconnect(); } catch {} });
+      v.filters.forEach(f => {
+        if (f._isComb) {
+          try { f.input.disconnect(); } catch {}
+          try { f.delay.disconnect(); } catch {}
+          try { f.feedback.disconnect(); } catch {}
+          try { f.output.disconnect(); } catch {}
+        } else {
+          try { f.disconnect(); } catch {}
+        }
+      });
 
       // Build new chain
       const newFilters = this._makeFilterChain();
@@ -374,6 +469,60 @@ export class AudioEngine {
   getRefFilters() {
     this._ensureContext();
     return this._refFilters;
+  }
+
+  /* --- Comb filter --- */
+
+  /**
+   * Create a feedforward+feedback comb filter.
+   * Cutoff sets the comb frequency (delay = 1/freq).
+   * Q controls feedback amount (0.01..30 mapped to 0..0.98).
+   * Returns array with a single wrapper object that has .first/.last for chaining
+   * and .delay/.feedback for parameter updates.
+   */
+  _makeCombChain() {
+    const delay = this._ctx.createDelay(0.05); // max 50ms = 20 Hz
+    const feedback = this._ctx.createGain();
+    const input = this._ctx.createGain();
+    const output = this._ctx.createGain();
+    input.gain.value = 1;
+    output.gain.value = 1;
+
+    // delay time = 1/cutoff (clamped 20-20000 Hz → 0.00005-0.05s)
+    const delayTime = 1 / Math.max(20, Math.min(20000, this._filterCutoff));
+    delay.delayTime.value = delayTime;
+
+    // feedback = Q mapped from 0.01..30 → 0..0.98
+    feedback.gain.value = Math.min(0.98, this._filterQ / 30 * 0.98);
+
+    // signal path: input → delay → output
+    //                       ↑←── feedback ←──↓
+    input.connect(delay);
+    delay.connect(output);
+    delay.connect(feedback);
+    feedback.connect(delay);
+
+    // Also pass dry signal through
+    input.connect(output);
+
+    // Store as single-element array; tag it so _chainFilters works
+    const wrapper = { _isComb: true, delay, feedback, input, output };
+    return [wrapper];
+  }
+
+  _applyCombParams(filters, time) {
+    for (const f of filters) {
+      if (!f._isComb) continue;
+      const delayTime = 1 / Math.max(20, Math.min(20000, this._filterCutoff));
+      const fb = Math.min(0.98, this._filterQ / 30 * 0.98);
+      if (time !== undefined) {
+        f.delay.delayTime.setTargetAtTime(delayTime, time, 0.01);
+        f.feedback.gain.setTargetAtTime(fb, time, 0.01);
+      } else {
+        f.delay.delayTime.value = delayTime;
+        f.feedback.gain.value = fb;
+      }
+    }
   }
 
   /* --- CST (custom drawn) filter --- */
@@ -440,6 +589,23 @@ export class AudioEngine {
     return { attack: this._attack, decay: this._decay, sustain: this._sustain, release: this._release };
   }
 
+  /* --- Filter Envelope --- */
+
+  setFilterEnv({ attack, decay, sustain, release, amount }) {
+    if (attack !== undefined)  this._fenvAttack  = Math.max(0.001, attack);
+    if (decay !== undefined)   this._fenvDecay   = Math.max(0.001, decay);
+    if (sustain !== undefined) this._fenvSustain  = Math.max(0, Math.min(1, sustain));
+    if (release !== undefined) this._fenvRelease  = Math.max(0.001, release);
+    if (amount !== undefined)  this._fenvAmount   = Math.max(-1, Math.min(1, amount));
+  }
+  getFilterEnv() {
+    return {
+      attack: this._fenvAttack, decay: this._fenvDecay,
+      sustain: this._fenvSustain, release: this._fenvRelease,
+      amount: this._fenvAmount,
+    };
+  }
+
   /* --- voice management --- */
 
   noteOn(frequency, midi, velocity = 1, destination = null) {
@@ -462,6 +628,22 @@ export class AudioEngine {
     const { first, last } = this._chainFilters(filters);
     envGain.connect(first);
     last.connect(dest);
+
+    // Filter envelope — modulate cutoff frequency
+    // amount controls sweep range in octaves (4 octaves max at amount=1)
+    const fenvAmt = this._fenvAmount;
+    if (fenvAmt !== 0 && this._filterModel !== 'cst' && this._filterType !== 'comb') {
+      const baseCutoff = this._filterCutoff;
+      const octaves = fenvAmt * 4; // ±4 octaves at full amount
+      const peakCutoff = Math.max(20, Math.min(20000, baseCutoff * Math.pow(2, octaves)));
+      const sustainCutoff = baseCutoff + (peakCutoff - baseCutoff) * this._fenvSustain;
+      for (const f of filters) {
+        f.frequency.cancelScheduledValues(now);
+        f.frequency.setValueAtTime(baseCutoff, now);
+        f.frequency.exponentialRampToValueAtTime(Math.max(20, peakCutoff), now + this._fenvAttack);
+        f.frequency.exponentialRampToValueAtTime(Math.max(20, sustainCutoff), now + this._fenvAttack + this._fenvDecay);
+      }
+    }
 
     // OSC 1
     const osc1 = this._ctx.createOscillator();
@@ -500,30 +682,66 @@ export class AudioEngine {
     const osc3Freq = frequency * Math.pow(2, this._osc3.octave + this._osc3.pitch / 12);
     const altVoice = this._createAltVoice(osc3Freq, osc3Gain);
 
-    this._voices.set(midi, { osc1, shaper1, osc1Gain, osc2, shaper2, osc2Gain, osc3Gain, altVoice, envGain, filters });
+    // Noise (per-voice, gated by ADSR envelope)
+    let noiseSrc = null;
+    let noiseGain = null;
+    if (this._noiseBuf && this._noiseLevel > 0) {
+      noiseSrc = this._ctx.createBufferSource();
+      noiseSrc.buffer = this._noiseBuf;
+      noiseSrc.loop = true;
+      noiseGain = this._ctx.createGain();
+      noiseGain.gain.value = this._noiseLevel * 0.5;
+      noiseSrc.connect(noiseGain);
+      noiseGain.connect(envGain);
+      noiseSrc.start();
+    }
+
+    this._voices.set(midi, { osc1, shaper1, osc1Gain, osc2, shaper2, osc2Gain, osc3Gain, altVoice, noiseSrc, noiseGain, envGain, filters });
   }
 
   noteOff(midi) {
     const voice = this._voices.get(midi);
     if (!voice) return;
     const now = this._ctx.currentTime;
-    const { osc1, shaper1, osc1Gain, osc2, shaper2, osc2Gain, osc3Gain, altVoice, envGain, filters } = voice;
+    const { osc1, shaper1, osc1Gain, osc2, shaper2, osc2Gain, osc3Gain, altVoice, noiseSrc, noiseGain, envGain, filters } = voice;
 
     envGain.gain.cancelScheduledValues(now);
     envGain.gain.setValueAtTime(envGain.gain.value, now);
     envGain.gain.linearRampToValueAtTime(0, now + this._release);
 
+    // Filter envelope release — return cutoff to base
+    if (this._fenvAmount !== 0 && this._filterModel !== 'cst' && this._filterType !== 'comb') {
+      const baseCutoff = Math.max(20, this._filterCutoff);
+      for (const f of filters) {
+        f.frequency.cancelScheduledValues(now);
+        f.frequency.setValueAtTime(f.frequency.value, now);
+        f.frequency.exponentialRampToValueAtTime(baseCutoff, now + this._fenvRelease);
+      }
+    }
+
     const stop = now + this._release + 0.01;
     osc1.stop(stop);
     osc2.stop(stop);
     if (altVoice) altVoice.stop(stop);
+    if (noiseSrc) noiseSrc.stop(stop);
     osc1.onended = () => { osc1.disconnect(); shaper1.disconnect(); osc1Gain.disconnect(); };
     osc2.onended = () => {
       osc2.disconnect(); shaper2.disconnect(); osc2Gain.disconnect();
       if (osc3Gain) osc3Gain.disconnect();
       if (altVoice) altVoice.disconnect();
+      if (noiseSrc) { try { noiseSrc.disconnect(); } catch {} }
+      if (noiseGain) { try { noiseGain.disconnect(); } catch {} }
       envGain.disconnect();
-      filters.forEach(f => { try { f.disconnect(); } catch {} });
+      filters.forEach(f => {
+        if (f._isComb) {
+          try { f.input.disconnect(); } catch {}
+          try { f.delay.disconnect(); } catch {}
+          try { f.feedback.disconnect(); } catch {}
+          try { f.output.disconnect(); } catch {}
+        } else {
+          try { f.disconnect(); } catch {}
+        }
+      });
     };
     this._voices.delete(midi);
   }
@@ -545,8 +763,19 @@ export class AudioEngine {
     try { v.osc2Gain.disconnect(); } catch {}
     if (v.osc3Gain) try { v.osc3Gain.disconnect(); } catch {}
     if (v.altVoice) try { v.altVoice.stop(); v.altVoice.disconnect(); } catch {}
+    if (v.noiseSrc) try { v.noiseSrc.stop(); v.noiseSrc.disconnect(); } catch {}
+    if (v.noiseGain) try { v.noiseGain.disconnect(); } catch {}
     try { v.envGain.disconnect(); } catch {}
-    v.filters.forEach(f => { try { f.disconnect(); } catch {} });
+    v.filters.forEach(f => {
+      if (f._isComb) {
+        try { f.input.disconnect(); } catch {}
+        try { f.delay.disconnect(); } catch {}
+        try { f.feedback.disconnect(); } catch {}
+        try { f.output.disconnect(); } catch {}
+      } else {
+        try { f.disconnect(); } catch {}
+      }
+    });
     this._voices.delete(midi);
   }
 
@@ -645,6 +874,66 @@ export class AudioEngine {
 
   get altModes() { return ALT_MODES; }
 
+  /* --- noise / ring mod / drive --- */
+
+  setNoiseLevel(val) {
+    this._noiseLevel = Math.max(0, Math.min(1, val));
+    // Update gain on any currently sounding voices
+    if (this._voices) {
+      for (const v of this._voices.values()) {
+        if (v.noiseGain) v.noiseGain.gain.value = this._noiseLevel * 0.5;
+      }
+    }
+  }
+  getNoiseLevel() { return this._noiseLevel; }
+
+  setRingModLevel(val) {
+    this._ringModLevel = Math.max(0, Math.min(1, val));
+    this._ensureContext();
+    this._updateRingMod();
+  }
+  getRingModLevel() { return this._ringModLevel; }
+
+  /** Update ring mod dry/wet crossfade based on _ringModLevel (0=dry, 1=full ring) */
+  _updateRingMod() {
+    if (!this._ringDryGain) return;
+    const wet = this._ringModLevel;
+    this._ringDryGain.gain.value = 1 - wet;
+    this._ringModGain.gain.value = wet;
+  }
+
+  setDriveLevel(val) {
+    this._driveLevel = Math.max(0, Math.min(1, val));
+    this._ensureContext();
+    this._updateDriveCurve();
+  }
+  getDriveLevel() { return this._driveLevel; }
+
+  /** Rebuild global drive waveshaper curve + makeup gain */
+  _updateDriveCurve() {
+    if (!this._driveShaper) return;
+    const amount = this._driveLevel;
+    const samples = 256;
+    const curve = new Float32Array(samples);
+    if (amount <= 0) {
+      // Linear passthrough
+      for (let i = 0; i < samples; i++) curve[i] = (2 * i) / (samples - 1) - 1;
+      this._driveShaper.curve = curve;
+      if (this._driveMakeup) this._driveMakeup.gain.value = 1;
+      return;
+    }
+    // Aggressive drive: pre-gain into hard tanh clipping
+    const preGain = 1 + amount * 8; // up to 9x input boost
+    for (let i = 0; i < samples; i++) {
+      const x = (2 * i) / (samples - 1) - 1;
+      const driven = x * preGain;
+      curve[i] = Math.tanh(driven);
+    }
+    this._driveShaper.curve = curve;
+    // Compensate for tanh compression (output never exceeds ±1)
+    if (this._driveMakeup) this._driveMakeup.gain.value = 1;
+  }
+
   /* --- effects --- */
 
   setChorusEnabled(on) { if (!this._chorus) return; this._ensureContext(); this._chorus.setEnabled(on); }
@@ -710,6 +999,9 @@ export class AudioEngine {
         decay: this.getReverbDecay(),
         mix: this.getReverbMix(),
       },
+      noise: this._noiseLevel,
+      ringMod: this._ringModLevel,
+      drive: this._driveLevel,
     };
   }
 
@@ -772,5 +1064,9 @@ export class AudioEngine {
       if (s.reverb.decay !== undefined) this.setReverbDecay(s.reverb.decay);
       if (s.reverb.mix !== undefined) this.setReverbMix(s.reverb.mix);
     }
+    // Noise / Ring Mod / Drive
+    if (s.noise !== undefined) this.setNoiseLevel(s.noise);
+    if (s.ringMod !== undefined) this.setRingModLevel(s.ringMod);
+    if (s.drive !== undefined) this.setDriveLevel(s.drive);
   }
 }

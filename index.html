@@ -37,59 +37,6 @@
     </div>
   </div>
 
-  <!-- ===== EFFECTS POPUP ===== -->
-  <div class="fx-popup" id="fx-popup">
-    <div class="fx-popup-inner">
-      <div class="section-label">EFFECTS</div>
-      <div class="fx-controls">
-        <div class="fx-effect-group">
-          <button class="effect-toggle-btn" id="chorus-toggle">CHORUS</button>
-          <div class="effect-params" id="chorus-params">
-            <div class="filter-slider-row">
-              <label>Rate</label>
-              <input type="range" id="chorus-rate" class="knob-slider filter-knob" min="0.1" max="10" step="0.1" value="1.5" />
-              <span class="knob-value" id="chorus-rate-value">1.5 Hz</span>
-            </div>
-            <div class="filter-slider-row">
-              <label>Depth</label>
-              <input type="range" id="chorus-depth" class="knob-slider filter-knob" min="0" max="10" step="0.1" value="3.0" />
-              <span class="knob-value" id="chorus-depth-value">3.0 ms</span>
-            </div>
-            <div class="filter-slider-row">
-              <label>Width</label>
-              <input type="range" id="chorus-width" class="knob-slider filter-knob" min="0" max="100" step="1" value="50" />
-              <span class="knob-value" id="chorus-width-value">50%</span>
-            </div>
-            <div class="filter-slider-row">
-              <label>HPC</label>
-              <input type="range" id="chorus-hpc" class="knob-slider filter-knob" min="20" max="2000" step="1" value="200" />
-              <span class="knob-value" id="chorus-hpc-value">200 Hz</span>
-            </div>
-            <div class="filter-slider-row">
-              <label>Mix</label>
-              <input type="range" id="chorus-mix" class="knob-slider filter-knob" min="0" max="100" step="1" value="50" />
-              <span class="knob-value" id="chorus-mix-value">50%</span>
-            </div>
-          </div>
-        </div>
-        <div class="fx-effect-group">
-          <button class="effect-toggle-btn" id="reverb-toggle">REVERB</button>
-          <div class="effect-params" id="reverb-params">
-            <div class="filter-slider-row">
-              <label>Decay</label>
-              <input type="range" id="reverb-decay" class="knob-slider filter-knob" min="0.1" max="10" step="0.1" value="2.0" />
-              <span class="knob-value" id="reverb-decay-value">2.0s</span>
-            </div>
-            <div class="filter-slider-row">
-              <label>Mix</label>
-              <input type="range" id="reverb-mix" class="knob-slider filter-knob" min="0" max="100" step="1" value="30" />
-              <span class="knob-value" id="reverb-mix-value">30%</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- ===== PROJECT POPUP ===== -->
   <div class="project-popup" id="project-popup">
@@ -141,7 +88,6 @@
         <label>VOL</label>
         <input type="range" id="master-vol" class="master-vol-slider" min="0" max="1" step="0.01" value="0.8" />
       </div>
-      <button class="transport-util-btn" id="fx-btn">FX</button>
       <button class="transport-util-btn" id="project-btn">FILE</button>
       <div id="note-display" class="note-display">—</div>
     </div>
@@ -181,14 +127,16 @@
         <div class="seq-grid" id="seq-grid">
           <!-- built by JS -->
         </div>
-        <div class="track-fx-panel" id="track-fx-panel">
-          <div class="track-fx-header">
-            <span class="track-fx-title" id="track-fx-title">FX</span>
-            <button class="track-fx-close" id="track-fx-close">&times;</button>
-          </div>
-          <div class="track-fx-body" id="track-fx-body"></div>
-        </div>
       </div>
+    </div>
+
+    <!-- ===== TRACK FX PANEL (right-side overlay) ===== -->
+    <div class="track-fx-panel" id="track-fx-panel">
+      <div class="track-fx-header">
+        <span class="track-fx-title" id="track-fx-title">FX</span>
+        <button class="track-fx-close" id="track-fx-close">&times;</button>
+      </div>
+      <div class="track-fx-body" id="track-fx-body"></div>
     </div>
 
     <!-- ===== SYNTH ENGINE PANEL (collapsible) ===== -->
@@ -209,247 +157,308 @@
 
         <div class="panel-sections" id="synth-sections">
 
-          <!-- OSCILLATORS -->
-          <div class="osc-stack">
+          <!-- COL 1: OSCILLATORS -->
+          <div class="synth-col col-osc">
 
-            <!-- OSC 1 -->
-            <div class="section osc-section">
-              <div class="section-label">OSC 1</div>
-              <div class="section-body">
-                <div class="knob-group">
-                  <label>Type</label>
-                  <div class="waveform-selector">
-                    <button class="waveform-btn active" data-osc="1" data-waveform="sawtooth">SAW</button>
-                    <button class="waveform-btn" data-osc="1" data-waveform="square">SQR</button>
-                    <button class="waveform-btn" data-osc="1" data-waveform="sine">SIN</button>
-                    <button class="waveform-btn" data-osc="1" data-waveform="triangle">TRI</button>
+            <div class="mod" id="mod-osc1">
+              <div class="mod-header">OSC 1</div>
+              <div class="mod-body mod-row">
+                <div class="ctrl-col">
+                  <label class="ctrl-label">Type</label>
+                  <div class="btn-row">
+                    <button class="chip-btn waveform-btn active" data-osc="1" data-waveform="sawtooth">SAW</button>
+                    <button class="chip-btn waveform-btn" data-osc="1" data-waveform="square">SQR</button>
+                    <button class="chip-btn waveform-btn" data-osc="1" data-waveform="sine">SIN</button>
+                    <button class="chip-btn waveform-btn" data-osc="1" data-waveform="triangle">TRI</button>
                   </div>
                 </div>
-                <div class="knob-group" data-route-target="osc1-volume">
-                  <label>Vol</label>
-                  <input type="range" id="osc1-volume" class="adsr-slider" min="0" max="1" step="0.01" value="0.5" />
-                  <span class="knob-value" id="osc1-volume-value">50%</span>
+                <div class="ctrl-col" data-route-target="osc1-volume">
+                  <label class="ctrl-label">Vol</label>
+                  <input type="range" id="osc1-volume" class="vslider" min="0" max="2" step="0.01" value="0.5" />
+                  <span class="ctrl-value" id="osc1-volume-value">50%</span>
                 </div>
-                <div class="knob-group" data-route-target="osc1-shape">
-                  <label>Shape</label>
-                  <input type="range" id="osc1-shape" class="adsr-slider" min="0" max="1" step="0.01" value="0" />
-                  <span class="knob-value" id="osc1-shape-value">0%</span>
+                <div class="ctrl-col" data-route-target="osc1-shape">
+                  <label class="ctrl-label">Shape</label>
+                  <input type="range" id="osc1-shape" class="vslider" min="0" max="1" step="0.01" value="0" />
+                  <span class="ctrl-value" id="osc1-shape-value">0%</span>
                 </div>
-                <div class="knob-group" data-route-target="osc1-pitch">
-                  <label>Pitch</label>
-                  <input type="range" id="osc1-pitch" class="adsr-slider" min="-7" max="7" step="0.01" value="0" />
-                  <span class="knob-value" id="osc1-pitch-value">0.00 st</span>
+                <div class="ctrl-col" data-route-target="osc1-pitch">
+                  <label class="ctrl-label">Pitch</label>
+                  <input type="range" id="osc1-pitch" class="vslider" min="-7" max="7" step="0.01" value="0" />
+                  <span class="ctrl-value" id="osc1-pitch-value">0.00 st</span>
                 </div>
-                <div class="knob-group">
-                  <label>Oct</label>
-                  <input type="range" id="osc1-octave" class="adsr-slider" min="-3" max="3" step="1" value="0" />
-                  <span class="knob-value" id="osc1-octave-value">0</span>
+                <div class="ctrl-col">
+                  <label class="ctrl-label">Oct</label>
+                  <input type="range" id="osc1-octave" class="vslider" min="-3" max="3" step="1" value="0" />
+                  <span class="ctrl-value" id="osc1-octave-value">0</span>
                 </div>
               </div>
             </div>
 
-            <!-- OSC 2 -->
-            <div class="section osc-section">
-              <div class="section-label">OSC 2</div>
-              <div class="section-body">
-                <div class="knob-group">
-                  <label>Type</label>
-                  <div class="waveform-selector">
-                    <button class="waveform-btn" data-osc="2" data-waveform="sawtooth">SAW</button>
-                    <button class="waveform-btn active" data-osc="2" data-waveform="square">SQR</button>
-                    <button class="waveform-btn" data-osc="2" data-waveform="sine">SIN</button>
-                    <button class="waveform-btn" data-osc="2" data-waveform="triangle">TRI</button>
+            <div class="mod" id="mod-osc2">
+              <div class="mod-header">OSC 2</div>
+              <div class="mod-body mod-row">
+                <div class="ctrl-col">
+                  <label class="ctrl-label">Type</label>
+                  <div class="btn-row">
+                    <button class="chip-btn waveform-btn" data-osc="2" data-waveform="sawtooth">SAW</button>
+                    <button class="chip-btn waveform-btn active" data-osc="2" data-waveform="square">SQR</button>
+                    <button class="chip-btn waveform-btn" data-osc="2" data-waveform="sine">SIN</button>
+                    <button class="chip-btn waveform-btn" data-osc="2" data-waveform="triangle">TRI</button>
                   </div>
                 </div>
-                <div class="knob-group" data-route-target="osc2-volume">
-                  <label>Vol</label>
-                  <input type="range" id="osc2-volume" class="adsr-slider" min="0" max="1" step="0.01" value="0" />
-                  <span class="knob-value" id="osc2-volume-value">0%</span>
+                <div class="ctrl-col" data-route-target="osc2-volume">
+                  <label class="ctrl-label">Vol</label>
+                  <input type="range" id="osc2-volume" class="vslider" min="0" max="2" step="0.01" value="0" />
+                  <span class="ctrl-value" id="osc2-volume-value">0%</span>
                 </div>
-                <div class="knob-group" data-route-target="osc2-shape">
-                  <label>Shape</label>
-                  <input type="range" id="osc2-shape" class="adsr-slider" min="0" max="1" step="0.01" value="0" />
-                  <span class="knob-value" id="osc2-shape-value">0%</span>
+                <div class="ctrl-col" data-route-target="osc2-shape">
+                  <label class="ctrl-label">Shape</label>
+                  <input type="range" id="osc2-shape" class="vslider" min="0" max="1" step="0.01" value="0" />
+                  <span class="ctrl-value" id="osc2-shape-value">0%</span>
                 </div>
-                <div class="knob-group" data-route-target="osc2-pitch">
-                  <label>Pitch</label>
-                  <input type="range" id="osc2-pitch" class="adsr-slider" min="-7" max="7" step="0.01" value="0" />
-                  <span class="knob-value" id="osc2-pitch-value">0.00 st</span>
+                <div class="ctrl-col" data-route-target="osc2-pitch">
+                  <label class="ctrl-label">Pitch</label>
+                  <input type="range" id="osc2-pitch" class="vslider" min="-7" max="7" step="0.01" value="0" />
+                  <span class="ctrl-value" id="osc2-pitch-value">0.00 st</span>
                 </div>
-                <div class="knob-group">
-                  <label>Oct</label>
-                  <input type="range" id="osc2-octave" class="adsr-slider" min="-3" max="3" step="1" value="0" />
-                  <span class="knob-value" id="osc2-octave-value">0</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- OSC 3 (PLAITS) -->
-            <div class="section osc3-section">
-              <div class="section-label">PLAITS</div>
-              <div class="section-body osc3-body">
-                <div class="osc3-top">
-                  <div class="knob-group">
-                    <label>Engine</label>
-                    <div class="osc3-mode-selector">
-                      <button class="osc3-mode-btn active" data-altmode="string">STR</button>
-                      <button class="osc3-mode-btn" data-altmode="fm">FM</button>
-                      <button class="osc3-mode-btn" data-altmode="formant">VOX</button>
-                    </div>
-                  </div>
-                  <div class="knob-group" data-route-target="osc3-volume">
-                    <label>Vol</label>
-                    <input type="range" id="osc3-volume" class="adsr-slider" min="0" max="1" step="0.01" value="0" />
-                    <span class="knob-value" id="osc3-volume-value">0%</span>
-                  </div>
-                  <div class="knob-group" data-route-target="osc3-pitch">
-                    <label>Pitch</label>
-                    <input type="range" id="osc3-pitch" class="adsr-slider" min="-7" max="7" step="0.01" value="0" />
-                    <span class="knob-value" id="osc3-pitch-value">0.00 st</span>
-                  </div>
-                  <div class="knob-group">
-                    <label>Oct</label>
-                    <input type="range" id="osc3-octave" class="adsr-slider" min="-3" max="3" step="1" value="0" />
-                    <span class="knob-value" id="osc3-octave-value">0</span>
-                  </div>
-                </div>
-                <div class="osc3-params" id="osc3-string-params">
-                  <div class="filter-slider-row" data-route-target="osc3-color">
-                    <label>Color</label>
-                    <input type="range" id="osc3-color" class="knob-slider filter-knob" min="0" max="1" step="0.01" value="0.5" />
-                    <span class="knob-value" id="osc3-color-value">50%</span>
-                  </div>
-                  <div class="filter-slider-row" data-route-target="osc3-damping">
-                    <label>Damp</label>
-                    <input type="range" id="osc3-damping" class="knob-slider filter-knob" min="0" max="1" step="0.01" value="0.5" />
-                    <span class="knob-value" id="osc3-damping-value">50%</span>
-                  </div>
-                </div>
-                <div class="osc3-params hidden" id="osc3-fm-params">
-                  <div class="filter-slider-row" data-route-target="osc3-ratio">
-                    <label>Ratio</label>
-                    <input type="range" id="osc3-ratio" class="knob-slider filter-knob" min="0.5" max="12" step="0.1" value="2" />
-                    <span class="knob-value" id="osc3-ratio-value">2.0</span>
-                  </div>
-                  <div class="filter-slider-row" data-route-target="osc3-index">
-                    <label>Index</label>
-                    <input type="range" id="osc3-index" class="knob-slider filter-knob" min="0" max="20" step="0.1" value="3" />
-                    <span class="knob-value" id="osc3-index-value">3.0</span>
-                  </div>
-                </div>
-                <div class="osc3-params hidden" id="osc3-formant-params">
-                  <div class="filter-slider-row" data-route-target="osc3-morph">
-                    <label>Morph</label>
-                    <input type="range" id="osc3-morph" class="knob-slider filter-knob" min="0" max="1" step="0.01" value="0" />
-                    <span class="knob-value" id="osc3-morph-value">A</span>
-                  </div>
-                  <div class="filter-slider-row" data-route-target="osc3-vibrato">
-                    <label>Vibrato</label>
-                    <input type="range" id="osc3-vibrato" class="knob-slider filter-knob" min="0" max="1" step="0.01" value="0.3" />
-                    <span class="knob-value" id="osc3-vibrato-value">30%</span>
-                  </div>
+                <div class="ctrl-col">
+                  <label class="ctrl-label">Oct</label>
+                  <input type="range" id="osc2-octave" class="vslider" min="-3" max="3" step="1" value="0" />
+                  <span class="ctrl-value" id="osc2-octave-value">0</span>
                 </div>
               </div>
             </div>
 
-          </div><!-- /osc-stack -->
-
-          <!-- FILTER -->
-          <div class="section">
-            <div class="section-label">FILTER</div>
-            <div class="section-body filter-body">
-              <div class="knob-group">
-                <label>Type</label>
-                <div class="filter-type-selector">
-                  <button class="filter-type-btn active" data-ftype="lowpass">LP</button>
-                  <button class="filter-type-btn" data-ftype="highpass">HP</button>
-                  <button class="filter-type-btn" data-ftype="bandpass">BP</button>
-                  <button class="filter-type-btn" data-ftype="notch">NCH</button>
-                  <button class="filter-type-btn" data-ftype="lowshelf">LS</button>
-                  <button class="filter-type-btn" data-ftype="highshelf">HS</button>
+            <div class="mod" id="mod-osc3">
+              <div class="mod-header">PLAITS</div>
+              <div class="mod-body mod-row">
+                <div class="ctrl-col">
+                  <label class="ctrl-label">Engine</label>
+                  <div class="btn-row">
+                    <button class="chip-btn osc3-mode-btn active" data-altmode="string">STR</button>
+                    <button class="chip-btn osc3-mode-btn" data-altmode="fm">FM</button>
+                    <button class="chip-btn osc3-mode-btn" data-altmode="formant">VOX</button>
+                  </div>
                 </div>
-              </div>
-              <div class="knob-group" id="filter-model-group">
-                <label>Model</label>
-                <div class="filter-model-selector">
-                  <button class="filter-model-btn active" data-model="svf12">SVF12</button>
-                  <button class="filter-model-btn" data-model="svf24">SVF24</button>
-                  <button class="filter-model-btn" data-model="rd3">RD3</button>
-                  <button class="filter-model-btn" data-model="mg">MG</button>
-                  <button class="filter-model-btn" data-model="ob12">OB12</button>
-                  <button class="filter-model-btn" data-model="ob24">OB24</button>
-                  <button class="filter-model-btn" data-model="cst">CST</button>
+                <div class="ctrl-col" data-route-target="osc3-volume">
+                  <label class="ctrl-label">Vol</label>
+                  <input type="range" id="osc3-volume" class="vslider" min="0" max="1" step="0.01" value="0" />
+                  <span class="ctrl-value" id="osc3-volume-value">0%</span>
                 </div>
-              </div>
-              <div class="filter-slider-row" data-route-target="filter-cutoff">
-                <label>Cutoff</label>
-                <input type="range" id="filter-cutoff" class="knob-slider filter-knob" min="0" max="1000" step="1" value="1000" />
-                <span class="knob-value" id="filter-cutoff-value">20.0k</span>
-              </div>
-              <div class="filter-slider-row" id="filter-q-group" data-route-target="filter-q">
-                <label>Reso</label>
-                <input type="range" id="filter-q" class="knob-slider filter-knob" min="0.01" max="30" step="0.01" value="0.5" />
-                <span class="knob-value" id="filter-q-value">0.50</span>
-              </div>
-              <div class="filter-slider-row hidden" id="filter-gain-group" data-route-target="filter-gain">
-                <label>Gain</label>
-                <input type="range" id="filter-gain" class="knob-slider filter-knob" min="-24" max="24" step="0.1" value="0" />
-                <span class="knob-value" id="filter-gain-value">+0.0 dB</span>
+                <div class="osc3-params osc3-params-inline" id="osc3-string-params">
+                  <div class="ctrl-col" data-route-target="osc3-color">
+                    <label class="ctrl-label">Color</label>
+                    <input type="range" id="osc3-color" class="vslider" min="0" max="1" step="0.01" value="0.5" />
+                    <span class="ctrl-value" id="osc3-color-value">50%</span>
+                  </div>
+                  <div class="ctrl-col" data-route-target="osc3-damping">
+                    <label class="ctrl-label">Damp</label>
+                    <input type="range" id="osc3-damping" class="vslider" min="0" max="1" step="0.01" value="0.5" />
+                    <span class="ctrl-value" id="osc3-damping-value">50%</span>
+                  </div>
+                </div>
+                <div class="osc3-params osc3-params-inline hidden" id="osc3-fm-params">
+                  <div class="ctrl-col" data-route-target="osc3-ratio">
+                    <label class="ctrl-label">Ratio</label>
+                    <input type="range" id="osc3-ratio" class="vslider" min="0.5" max="12" step="0.1" value="2" />
+                    <span class="ctrl-value" id="osc3-ratio-value">2.0</span>
+                  </div>
+                  <div class="ctrl-col" data-route-target="osc3-index">
+                    <label class="ctrl-label">Index</label>
+                    <input type="range" id="osc3-index" class="vslider" min="0" max="20" step="0.1" value="3" />
+                    <span class="ctrl-value" id="osc3-index-value">3.0</span>
+                  </div>
+                </div>
+                <div class="osc3-params osc3-params-inline hidden" id="osc3-formant-params">
+                  <div class="ctrl-col" data-route-target="osc3-morph">
+                    <label class="ctrl-label">Morph</label>
+                    <input type="range" id="osc3-morph" class="vslider" min="0" max="1" step="0.01" value="0" />
+                    <span class="ctrl-value" id="osc3-morph-value">A</span>
+                  </div>
+                  <div class="ctrl-col" data-route-target="osc3-vibrato">
+                    <label class="ctrl-label">Vib</label>
+                    <input type="range" id="osc3-vibrato" class="vslider" min="0" max="1" step="0.01" value="0.3" />
+                    <span class="ctrl-value" id="osc3-vibrato-value">30%</span>
+                  </div>
+                </div>
+                <div class="ctrl-col" data-route-target="osc3-pitch">
+                  <label class="ctrl-label">Pitch</label>
+                  <input type="range" id="osc3-pitch" class="vslider" min="-7" max="7" step="0.01" value="0" />
+                  <span class="ctrl-value" id="osc3-pitch-value">0.00 st</span>
+                </div>
+                <div class="ctrl-col">
+                  <label class="ctrl-label">Oct</label>
+                  <input type="range" id="osc3-octave" class="vslider" min="-3" max="3" step="1" value="0" />
+                  <span class="ctrl-value" id="osc3-octave-value">0</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- DISPLAY + ENVELOPE + LFO -->
-          <div class="display-env-stack">
-            <div class="section display-section">
-              <div class="section-label">DISPLAY</div>
+          </div><!-- /col-osc -->
+
+          <!-- COL 1.5: UTILITY STRIP -->
+          <div class="synth-col col-util">
+
+            <div class="mod mod-util" id="mod-noise">
+              <div class="mod-header">NOISE</div>
+              <div class="mod-body mod-row">
+                <div class="ctrl-col util-ctrl">
+                  <input type="range" id="noise-level" class="vslider" min="0" max="1" step="0.01" value="0" data-route-target="noise-level" />
+                  <span class="ctrl-value" id="noise-level-value">0</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mod mod-util" id="mod-ringmod">
+              <div class="mod-header">RING</div>
+              <div class="mod-body mod-row">
+                <div class="ctrl-col util-ctrl">
+                  <input type="range" id="ringmod-level" class="vslider" min="0" max="1" step="0.01" value="0" data-route-target="ringmod-level" />
+                  <span class="ctrl-value" id="ringmod-level-value">0</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mod mod-util" id="mod-drive">
+              <div class="mod-header">DRIVE</div>
+              <div class="mod-body mod-row">
+                <div class="ctrl-col util-ctrl">
+                  <input type="range" id="drive-level" class="vslider" min="0" max="1" step="0.01" value="0" data-route-target="drive-level" />
+                  <span class="ctrl-value" id="drive-level-value">0</span>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /col-util -->
+
+          <!-- COL 2: ENVELOPES + FILTER -->
+          <div class="synth-col col-env">
+
+            <div class="mod" id="mod-amp-env">
+              <div class="mod-header">AMP ENVELOPE</div>
+              <div class="mod-body mod-row env-row">
+                <div class="ctrl-col">
+                  <label class="ctrl-label">A</label>
+                  <input type="range" class="vslider" id="attack" min="0.001" max="2" step="0.001" value="0.01" />
+                  <span class="ctrl-value" id="attack-value">10ms</span>
+                </div>
+                <div class="ctrl-col">
+                  <label class="ctrl-label">D</label>
+                  <input type="range" class="vslider" id="decay" min="0.001" max="2" step="0.001" value="0.1" />
+                  <span class="ctrl-value" id="decay-value">100ms</span>
+                </div>
+                <div class="ctrl-col">
+                  <label class="ctrl-label">S</label>
+                  <input type="range" class="vslider" id="sustain" min="0" max="1" step="0.01" value="0.7" />
+                  <span class="ctrl-value" id="sustain-value">70%</span>
+                </div>
+                <div class="ctrl-col">
+                  <label class="ctrl-label">R</label>
+                  <input type="range" class="vslider" id="release" min="0.001" max="3" step="0.001" value="0.3" />
+                  <span class="ctrl-value" id="release-value">300ms</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mod" id="mod-filt-env">
+              <div class="mod-header">FILTER ENVELOPE</div>
+              <div class="mod-body mod-row env-row">
+                <div class="ctrl-col">
+                  <label class="ctrl-label">A</label>
+                  <input type="range" class="vslider" id="fenv-attack" min="0.001" max="2" step="0.001" value="0.01" />
+                  <span class="ctrl-value" id="fenv-attack-value">10ms</span>
+                </div>
+                <div class="ctrl-col">
+                  <label class="ctrl-label">D</label>
+                  <input type="range" class="vslider" id="fenv-decay" min="0.001" max="2" step="0.001" value="0.3" />
+                  <span class="ctrl-value" id="fenv-decay-value">300ms</span>
+                </div>
+                <div class="ctrl-col">
+                  <label class="ctrl-label">S</label>
+                  <input type="range" class="vslider" id="fenv-sustain" min="0" max="1" step="0.01" value="0" />
+                  <span class="ctrl-value" id="fenv-sustain-value">0%</span>
+                </div>
+                <div class="ctrl-col">
+                  <label class="ctrl-label">R</label>
+                  <input type="range" class="vslider" id="fenv-release" min="0.001" max="3" step="0.001" value="0.3" />
+                  <span class="ctrl-value" id="fenv-release-value">300ms</span>
+                </div>
+                <div class="ctrl-col">
+                  <label class="ctrl-label">Amt</label>
+                  <input type="range" class="vslider" id="fenv-amount" min="-1" max="1" step="0.01" value="0" />
+                  <span class="ctrl-value" id="fenv-amount-value">0%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mod" id="mod-filter">
+              <div class="mod-header mod-header-row">
+                <span>FILTER</span>
+                <div class="btn-row">
+                  <button class="chip-btn filter-type-btn active" data-ftype="lowpass">LP</button>
+                  <button class="chip-btn filter-type-btn" data-ftype="highpass">HP</button>
+                  <button class="chip-btn filter-type-btn" data-ftype="bandpass">BP</button>
+                  <button class="chip-btn filter-type-btn" data-ftype="notch">NCH</button>
+                  <button class="chip-btn filter-type-btn" data-ftype="lowshelf">LS</button>
+                  <button class="chip-btn filter-type-btn" data-ftype="highshelf">HS</button>
+                  <button class="chip-btn filter-type-btn" data-ftype="comb">CMB</button>
+                </div>
+              </div>
+              <div class="mod-body mod-col">
+                <div class="btn-row" id="filter-model-group">
+                  <button class="chip-btn filter-model-btn active" data-model="svf12">SVF12</button>
+                  <button class="chip-btn filter-model-btn" data-model="svf24">SVF24</button>
+                  <button class="chip-btn filter-model-btn" data-model="rd3">RD3</button>
+                  <button class="chip-btn filter-model-btn" data-model="mg">MG</button>
+                  <button class="chip-btn filter-model-btn" data-model="ob12">OB12</button>
+                  <button class="chip-btn filter-model-btn" data-model="ob24">OB24</button>
+                  <button class="chip-btn filter-model-btn" data-model="cst">CST</button>
+                </div>
+                <div class="hslider-row" data-route-target="filter-cutoff">
+                  <label class="ctrl-label">Cutoff</label>
+                  <input type="range" id="filter-cutoff" class="hslider" min="0" max="1000" step="1" value="1000" />
+                  <span class="ctrl-value" id="filter-cutoff-value">20.0k</span>
+                </div>
+                <div class="hslider-row" id="filter-q-group" data-route-target="filter-q">
+                  <label class="ctrl-label">Reso</label>
+                  <input type="range" id="filter-q" class="hslider" min="0.01" max="30" step="0.01" value="0.5" />
+                  <span class="ctrl-value" id="filter-q-value">0.50</span>
+                </div>
+                <div class="hslider-row hidden" id="filter-gain-group" data-route-target="filter-gain">
+                  <label class="ctrl-label">Gain</label>
+                  <input type="range" id="filter-gain" class="hslider" min="-24" max="24" step="0.1" value="0" />
+                  <span class="ctrl-value" id="filter-gain-value">+0.0 dB</span>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /col-env -->
+
+          <!-- COL 3: DISPLAY + LFO -->
+          <div class="synth-col col-disp">
+
+            <div class="mod mod-display" id="mod-display">
+              <div class="mod-header">DISPLAY</div>
               <div class="oled">
                 <canvas id="oscilloscope"></canvas>
               </div>
             </div>
 
-            <div class="section">
-              <div class="section-label">ENVELOPE</div>
-              <div class="section-body adsr-row">
-                <div class="adsr-knob">
-                  <label>A</label>
-                  <input type="range" class="adsr-slider" id="attack" min="0.001" max="2" step="0.001" value="0.01" />
-                  <span class="knob-value" id="attack-value">10ms</span>
+            <div class="mod" id="mod-lfo">
+              <div class="mod-header">LFO</div>
+              <div class="mod-body mod-col">
+                <div class="btn-row">
+                  <button class="chip-btn lfo-wave-btn active" data-lfowave="sine">SIN</button>
+                  <button class="chip-btn lfo-wave-btn" data-lfowave="triangle">TRI</button>
+                  <button class="chip-btn lfo-wave-btn" data-lfowave="square">SQR</button>
+                  <button class="chip-btn lfo-wave-btn" data-lfowave="sawtooth">SAW</button>
+                  <button class="chip-btn lfo-wave-btn" data-lfowave="snh">S&amp;H</button>
                 </div>
-                <div class="adsr-knob">
-                  <label>D</label>
-                  <input type="range" class="adsr-slider" id="decay" min="0.001" max="2" step="0.001" value="0.1" />
-                  <span class="knob-value" id="decay-value">100ms</span>
-                </div>
-                <div class="adsr-knob">
-                  <label>S</label>
-                  <input type="range" class="adsr-slider" id="sustain" min="0" max="1" step="0.01" value="0.7" />
-                  <span class="knob-value" id="sustain-value">70%</span>
-                </div>
-                <div class="adsr-knob">
-                  <label>R</label>
-                  <input type="range" class="adsr-slider" id="release" min="0.001" max="3" step="0.001" value="0.3" />
-                  <span class="knob-value" id="release-value">300ms</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="section lfo-section">
-              <div class="section-label">LFO</div>
-              <div class="section-body lfo-body">
-                <div class="lfo-controls">
-                  <div class="lfo-wave-selector">
-                    <button class="lfo-wave-btn active" data-lfowave="sine">SIN</button>
-                    <button class="lfo-wave-btn" data-lfowave="triangle">TRI</button>
-                    <button class="lfo-wave-btn" data-lfowave="square">SQR</button>
-                    <button class="lfo-wave-btn" data-lfowave="sawtooth">SAW</button>
-                    <button class="lfo-wave-btn" data-lfowave="snh">S&amp;H</button>
-                  </div>
-                  <div class="lfo-rate-row">
-                    <label>Rate</label>
-                    <input type="range" id="lfo-rate" class="knob-slider" min="0.05" max="20" step="0.05" value="1" />
-                    <span class="knob-value" id="lfo-rate-value">1.0 Hz</span>
-                  </div>
+                <div class="hslider-row">
+                  <label class="ctrl-label">Rate</label>
+                  <input type="range" id="lfo-rate" class="hslider" min="0.05" max="20" step="0.05" value="1" />
+                  <span class="ctrl-value" id="lfo-rate-value">1.0 Hz</span>
                 </div>
                 <div class="lfo-routing">
                   <div class="lfo-route-pin" id="lfo-route-pin" title="Drag to a parameter to route LFO"></div>
@@ -457,7 +466,8 @@
                 </div>
               </div>
             </div>
-          </div><!-- /display-env-stack -->
+
+          </div><!-- /col-disp -->
 
         </div><!-- /panel-sections -->
 

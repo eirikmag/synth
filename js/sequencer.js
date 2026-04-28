@@ -288,6 +288,14 @@ export class Sequencer {
   get recTrack() { return this._recTrack; }
   get recording() { return this._recording; }
 
+  setMasterVolume(v) {
+    if (!this._masterGain) return;
+    this._masterGain.gain.setTargetAtTime(
+      Math.max(0, Math.min(1, v)),
+      this._masterGain.context.currentTime, 0.01
+    );
+  }
+
   get masterLength() { return this._masterLength; }
   setMasterLength(steps) {
     this._masterLength = Math.max(0, Math.min(MAX_STEPS, steps));

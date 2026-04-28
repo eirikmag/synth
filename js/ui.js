@@ -12,6 +12,8 @@ export class UIManager {
     this._pianoKeys = null;
     this._adsrSliders = {};
     this._adsrValues = {};
+    this._fenvSliders = {};
+    this._fenvValues = {};
     this._arpPopup = null;
     this._fxPopup = null;
 
@@ -34,7 +36,9 @@ export class UIManager {
     this._bindOscOctaves();
     this._bindOsc3();
     this._bindFilter();
+    this._bindUtilStrip();
     this._bindADSR();
+    this._bindFilterEnv();
     this._bindPlayMode();
     this._bindTempo();
     this._bindArpControls();
@@ -315,6 +319,8 @@ export class UIManager {
         return { q: true, gain: true, model: false, cutoff: true };
       case 'lowpass':
         return { q: true, gain: false, model: true, cutoff: true };
+      case 'comb':
+        return { q: true, gain: false, model: false, cutoff: true };
       default:            // highpass, bandpass, notch
         return { q: true, gain: false, model: false, cutoff: true };
     }
@@ -429,6 +435,40 @@ export class UIManager {
     display.textContent = (value >= 0 ? '+' : '') + parseFloat(value).toFixed(1) + ' dB';
   }
 
+  /* --- Noise / Ring Mod / Drive --- */
+
+  _bindUtilStrip() {
+    const bind = (id, cb) => {
+      const slider = document.getElementById(id);
+      const display = document.getElementById(id + '-value');
+      if (!slider) return;
+      slider.addEventListener('input', () => {
+        const v = parseFloat(slider.value);
+        display.textContent = Math.round(v * 100);
+        cb(v);
+      });
+    };
+    bind('noise-level', v => this._cb.onNoiseLevelChange(v));
+    bind('ringmod-level', v => this._cb.onRingModLevelChange(v));
+    bind('drive-level', v => this._cb.onDriveLevelChange(v));
+  }
+
+  setNoiseLevel(val) {
+    const s = document.getElementById('noise-level');
+    const d = document.getElementById('noise-level-value');
+    if (s) { s.value = val; d.textContent = Math.round(val * 100); }
+  }
+  setRingModLevel(val) {
+    const s = document.getElementById('ringmod-level');
+    const d = document.getElementById('ringmod-level-value');
+    if (s) { s.value = val; d.textContent = Math.round(val * 100); }
+  }
+  setDriveLevel(val) {
+    const s = document.getElementById('drive-level');
+    const d = document.getElementById('drive-level-value');
+    if (s) { s.value = val; d.textContent = Math.round(val * 100); }
+  }
+
   /* --- ADSR --- */
 
   _formatADSR(param, value) {
@@ -456,6 +496,50 @@ export class UIManager {
       if (this._adsrSliders[param]) {
         this._adsrSliders[param].value = value;
         this._adsrValues[param].textContent = this._formatADSR(param, value);
+      }
+    }
+  }
+
+  /* --- filter envelope --- */
+
+  _bindFilterEnv() {
+    ['attack', 'decay', 'sustain', 'release'].forEach(param => {
+      const slider = document.getElementById('fenv-' + param);
+      const display = document.getElementById('fenv-' + param + '-value');
+      if (!slider) return;
+      this._fenvSliders[param] = slider;
+      this._fenvValues[param] = display;
+
+      slider.addEventListener('input', () => {
+        const v = parseFloat(slider.value);
+        display.textContent = this._formatADSR(param, v);
+        this._cb.onFilterEnvChange({ [param]: v });
+      });
+    });
+
+    // Amount slider (bipolar -1..+1)
+    const amtSlider = document.getElementById('fenv-amount');
+    const amtDisplay = document.getElementById('fenv-amount-value');
+    if (amtSlider) {
+      this._fenvSliders.amount = amtSlider;
+      this._fenvValues.amount = amtDisplay;
+      amtSlider.addEventListener('input', () => {
+        const v = parseFloat(amtSlider.value);
+        amtDisplay.textContent = Math.round(v * 100) + '%';
+        this._cb.onFilterEnvChange({ amount: v });
+      });
+    }
+  }
+
+  setFilterEnv(env) {
+    for (const [param, value] of Object.entries(env)) {
+      if (this._fenvSliders[param]) {
+        this._fenvSliders[param].value = value;
+        if (param === 'amount') {
+          this._fenvValues[param].textContent = Math.round(value * 100) + '%';
+        } else {
+          this._fenvValues[param].textContent = this._formatADSR(param, value);
+        }
       }
     }
   }

@@ -65,11 +65,15 @@ function refreshSynthPanelUI() {
   ui.setFilterQ(activeEngine.getFilterQ());
   ui.setFilterGain(activeEngine.getFilterGain());
   ui.setADSR(activeEngine.getADSR());
-  ui.setMasterVolume(activeEngine.getMasterVolume());
+  ui.setFilterEnv(activeEngine.getFilterEnv());
+  ui.setMasterVolume(audio.getMasterVolume());
   ui.setOsc3Mode(activeEngine.getOsc3Mode());
   ui.setOsc3Volume(activeEngine.getOsc3Volume());
   ui.setOsc3Pitch(activeEngine.getOsc3Pitch());
   ui.setOsc3Octave(activeEngine.getOsc3Octave());
+  ui.setNoiseLevel(activeEngine.getNoiseLevel());
+  ui.setRingModLevel(audio.getRingModLevel());
+  ui.setDriveLevel(audio.getDriveLevel());
 }
 
 // Current page view (0-indexed, global for all tracks)
@@ -108,7 +112,11 @@ function audioNoteOn(freq, midi, name, vel = 1) {
   if (seq.recording && seq.playing) {
     seq.recordNote(midi, vel);
   }
-  activeEngine.noteOn(freq, midi, vel);
+  // Route through main audio engine's masterGain for global effects (drive, ring, noise)
+  const useMainChain = activeEngine !== audio;
+  const dest = useMainChain ? audio.getMasterGainNode() : undefined;
+  if (useMainChain && visualizer) visualizer.setAnalyser(audio.analyser);
+  activeEngine.noteOn(freq, midi, vel, dest);
   ui.showNote(name);
   ui.highlightKey(midi);
 }
@@ -119,7 +127,13 @@ function audioNoteOff(midi) {
   }
   activeEngine.noteOff(midi);
   ui.releaseKey(midi);
-  if (activeEngine.activeVoiceCount === 0) ui.clearNote();
+  if (activeEngine.activeVoiceCount === 0) {
+    ui.clearNote();
+    // Switch visualizer back to sequencer monitor when no keyboard voices remain
+    if (activeEngine !== audio && visualizer && seq.monitorAnalyser) {
+      visualizer.setAnalyser(seq.monitorAnalyser);
+    }
+  }
 }
 
 /* --- Arpeggiator --- */
@@ -182,28 +196,51 @@ function setPlayMode(mode) {
   playMode = mode;
 }
 
+/* --- Osc preview helper --- */
+function updateOscPreview() {
+  if (!visualizer) return;
+  const cfg = activeEngine.getOscPreviewConfig();
+  visualizer.showOscPreview(cfg.osc1, cfg.osc2, cfg.osc3);
+}
+
+/* --- Envelope preview helper --- */
+function updateEnvPreview() {
+  if (!visualizer) return;
+  visualizer.showEnvPreview(activeEngine.getADSR(), activeEngine.getFilterEnv());
+}
+
 /* --- UI callbacks --- */
 
 const ui = new UIManager({
-  onWaveformChange(oscNum, type) { activeEngine.setWaveform(oscNum, type); },
+  onWaveformChange(oscNum, type) {
+    activeEngine.setWaveform(oscNum, type);
+    updateOscPreview();
+  },
   onVolumeChange(oscNum, value) {
     activeEngine.setVolume(oscNum, value);
     lfo.updateBase('osc' + oscNum + '-volume', value);
+    updateOscPreview();
   },
   onShapeChange(oscNum, value) {
     activeEngine.setShape(oscNum, value);
     lfo.updateBase('osc' + oscNum + '-shape', value);
+    updateOscPreview();
   },
   onPitchChange(oscNum, value) {
     activeEngine.setPitch(oscNum, value);
     lfo.updateBase('osc' + oscNum + '-pitch', value);
+    updateOscPreview();
   },
-  onOctaveChange(oscNum, value) { activeEngine.setOctave(oscNum, value); },
+  onOctaveChange(oscNum, value) {
+    activeEngine.setOctave(oscNum, value);
+    updateOscPreview();
+  },
   onFilterTypeChange(type) {
     activeEngine.setFilterType(type);
     if (visualizer) {
       updateVisualizerDrawMode();
       visualizer.setRefFilters(activeEngine.getRefFilters());
+      visualizer.flashFilterResponse();
     }
   },
   onFilterModelChange(model) {
@@ -211,60 +248,70 @@ const ui = new UIManager({
     if (visualizer) {
       updateVisualizerDrawMode();
       visualizer.setRefFilters(activeEngine.getRefFilters());
+      visualizer.flashFilterResponse();
     }
   },
   onFilterCutoffChange(freq) {
     activeEngine.setFilterCutoff(freq);
     lfo.updateBase('filter-cutoff', freq);
+    if (visualizer) visualizer.flashFilterResponse();
   },
   onFilterQChange(value) {
     activeEngine.setFilterQ(value);
     lfo.updateBase('filter-q', value);
+    if (visualizer) visualizer.flashFilterResponse();
   },
   onFilterGainChange(dB) {
     activeEngine.setFilterGain(dB);
     lfo.updateBase('filter-gain', dB);
+    if (visualizer) visualizer.flashFilterResponse();
   },
-  onADSRChange(params) { activeEngine.setADSR(params); },
+  onADSRChange(params) { activeEngine.setADSR(params); updateEnvPreview(); },
+  onFilterEnvChange(params) { activeEngine.setFilterEnv(params); updateEnvPreview(); },
   onPlayModeChange(mode) { setPlayMode(mode); },
   onTempoChange(bpm) {
     arp.setBPM(bpm);
     seq.setBPM(bpm);
   },
-  onMasterVolumeChange(v) { activeEngine.setMasterVolume(v); },
+  onMasterVolumeChange(v) { audio.setMasterVolume(v); seq.setMasterVolume(v); },
   onArpDivisionChange(div) { arp.setDivision(div); },
   onArpModeChange(mode) { arp.setMode(mode); },
   onArpQuantizeChange(on) { arp.setQuantize(on); },
-  onChorusEnabledChange(on) { activeEngine.setChorusEnabled(on); },
-  onChorusRateChange(hz) { activeEngine.setChorusRate(hz); },
-  onChorusDepthChange(ms) { activeEngine.setChorusDepth(ms); },
-  onChorusWidthChange(pct) { activeEngine.setChorusWidth(pct); },
-  onChorusHPCChange(freq) { activeEngine.setChorusHPC(freq); },
-  onChorusMixChange(pct) { activeEngine.setChorusMix(pct); },
-  onReverbEnabledChange(on) { activeEngine.setReverbEnabled(on); },
-  onReverbDecayChange(seconds) { activeEngine.setReverbDecay(seconds); },
-  onReverbMixChange(pct) { activeEngine.setReverbMix(pct); },
+  onChorusEnabledChange(on) { audio.setChorusEnabled(on); },
+  onChorusRateChange(hz) { audio.setChorusRate(hz); },
+  onChorusDepthChange(ms) { audio.setChorusDepth(ms); },
+  onChorusWidthChange(pct) { audio.setChorusWidth(pct); },
+  onChorusHPCChange(freq) { audio.setChorusHPC(freq); },
+  onChorusMixChange(pct) { audio.setChorusMix(pct); },
+  onReverbEnabledChange(on) { audio.setReverbEnabled(on); },
+  onReverbDecayChange(seconds) { audio.setReverbDecay(seconds); },
+  onReverbMixChange(pct) { audio.setReverbMix(pct); },
+  onNoiseLevelChange(v) { activeEngine.setNoiseLevel(v); audio.setNoiseLevel(v); },
+  onRingModLevelChange(v) { audio.setRingModLevel(v); },
+  onDriveLevelChange(v) { audio.setDriveLevel(v); },
   onLFOWaveformChange(type) { lfo.setWaveform(type); },
   onLFORateChange(hz) { lfo.setRate(hz); },
   onLFORouteAdd(targetId) { lfo.addRoute(targetId, 50, activeEngine); },
   onLFORouteRemove(targetId) { lfo.removeRoute(targetId); },
   onLFORouteAmountChange(targetId, amount) { lfo.setRouteAmount(targetId, amount); },
-  onOsc3ModeChange(mode) { activeEngine.setOsc3Mode(mode); },
+  onOsc3ModeChange(mode) { activeEngine.setOsc3Mode(mode); updateOscPreview(); },
   onOsc3VolumeChange(v) {
     activeEngine.setOsc3Volume(v);
     lfo.updateBase('osc3-volume', v);
+    updateOscPreview();
   },
   onOsc3PitchChange(v) {
     activeEngine.setOsc3Pitch(v);
     lfo.updateBase('osc3-pitch', v);
+    updateOscPreview();
   },
-  onOsc3OctaveChange(v) { activeEngine.setOsc3Octave(v); },
-  onOsc3ColorChange(v) { activeEngine.setOsc3Color(v); },
-  onOsc3DampingChange(v) { activeEngine.setOsc3Damping(v); },
-  onOsc3RatioChange(v) { activeEngine.setOsc3Ratio(v); },
-  onOsc3IndexChange(v) { activeEngine.setOsc3Index(v); },
-  onOsc3MorphChange(v) { activeEngine.setOsc3Morph(v); },
-  onOsc3VibratoChange(v) { activeEngine.setOsc3Vibrato(v); },
+  onOsc3OctaveChange(v) { activeEngine.setOsc3Octave(v); updateOscPreview(); },
+  onOsc3ColorChange(v) { activeEngine.setOsc3Color(v); updateOscPreview(); },
+  onOsc3DampingChange(v) { activeEngine.setOsc3Damping(v); updateOscPreview(); },
+  onOsc3RatioChange(v) { activeEngine.setOsc3Ratio(v); updateOscPreview(); },
+  onOsc3IndexChange(v) { activeEngine.setOsc3Index(v); updateOscPreview(); },
+  onOsc3MorphChange(v) { activeEngine.setOsc3Morph(v); updateOscPreview(); },
+  onOsc3VibratoChange(v) { activeEngine.setOsc3Vibrato(v); updateOscPreview(); },
   onNoteOn: noteOn,
   onNoteOff: noteOff,
 });
@@ -300,7 +347,8 @@ function handleMIDIMessage(e) {
       seq.setStepVel(t, s, velocity / 127);
       _updateMidiEditCellDisplay();
       // Also audition the note so the user hears what they entered
-      activeEngine.noteOn(midiToFreq(note), note, velocity / 127);
+      const audDest = (activeEngine !== audio) ? audio.getMasterGainNode() : undefined;
+      activeEngine.noteOn(midiToFreq(note), note, velocity / 127, audDest);
       setTimeout(() => activeEngine.noteOff(note), 200);
       return;
     }
@@ -378,6 +426,9 @@ function openTrackFxPanel(trackIdx) {
   const info = seq.getTrack(trackIdx);
   if (!info) return;
 
+  // Auto-select the track so it's highlighted and synth panel updates
+  if (activeTrackIdx !== trackIdx) selectTrack(trackIdx);
+
   _fxPanelTrack = trackIdx;
 
   // Update title
@@ -417,6 +468,22 @@ function toggleTrackFxPanel(trackIdx) {
   } else {
     openTrackFxPanel(trackIdx);
   }
+}
+
+/** Update the FX button indicator for a track — cyan outline when any effect is enabled. */
+function updateTrackFxIndicator(trackIdx) {
+  const grid = document.getElementById('seq-grid');
+  if (!grid) return;
+  const btn = grid.querySelector(`.track-fx-btn[data-track="${trackIdx}"]`);
+  if (!btn) return;
+  const chain = seq.getTrackChain(trackIdx);
+  const hasAny = chain && (
+    chain.getFilterEnabled() ||
+    chain.getChorusEnabled() ||
+    chain.getReverbEnabled() ||
+    chain.getDistortionEnabled()
+  );
+  btn.classList.toggle('has-fx', !!hasAny);
 }
 
 /* ── Track Chain module UI builders ── */
@@ -564,6 +631,7 @@ function buildChainFilterUI(chain, trackIdx) {
     chain.setFilterEnabled(on);
     toggle.classList.toggle('active', on);
     body.classList.toggle('hidden', !on);
+    updateTrackFxIndicator(trackIdx);
   });
 
   return sec;
@@ -666,6 +734,7 @@ function buildChainChorusUI(chain, trackIdx) {
     chain.setChorusEnabled(on);
     toggle.classList.toggle('active', on);
     body.classList.toggle('hidden', !on);
+    updateTrackFxIndicator(trackIdx);
   });
 
   return sec;
@@ -743,6 +812,7 @@ function buildChainReverbUI(chain, trackIdx) {
     chain.setReverbEnabled(on);
     toggle.classList.toggle('active', on);
     body.classList.toggle('hidden', !on);
+    updateTrackFxIndicator(trackIdx);
   });
 
   return sec;
@@ -841,6 +911,7 @@ function buildChainDistortionUI(chain, trackIdx) {
     chain.setDistortionEnabled(on);
     toggle.classList.toggle('active', on);
     body.classList.toggle('hidden', !on);
+    updateTrackFxIndicator(trackIdx);
   });
 
   return sec;
@@ -1171,6 +1242,15 @@ let _resizeOrigStart = -1;  // original note group start step
 let _resizeOrigEnd = -1;    // original note group end step
 let _resizePageOffset = 0;
 
+// Copy-drag state: drag a gated step to copy its note+vel to another step
+let _copyDragging = false;
+let _copyDragCompleted = false;
+let _copyTrack = -1;
+let _copyMidi = 60;
+let _copyVel = 1;
+let _copySourceStep = -1;
+let _copySourceCell = null;
+
 /** Find the tied note group containing step s on track t.
  *  Returns { start, end } absolute step indices (inclusive). */
 function _findNoteGroup(t, s) {
@@ -1339,7 +1419,31 @@ function _applyPaint(cell, t, s, isSynth, pageOffset) {
   }
 }
 
-window.addEventListener('mouseup', () => {
+window.addEventListener('mouseup', (e) => {
+  // Complete copy-drag
+  if (_copyDragging) {
+    const targetCell = document.querySelector('.copy-target');
+    if (targetCell) {
+      const t = parseInt(targetCell.dataset.track);
+      const s = parseInt(targetCell.dataset.step);
+      seq.setStepNote(t, s, _copyMidi);
+      seq.setStepVel(t, s, _copyVel);
+      seq.setGate(t, s, true);
+      targetCell.classList.add('on');
+      targetCell.textContent = midiToName(_copyMidi);
+      targetCell.style.opacity = 0.3 + _copyVel * 0.7;
+      targetCell.classList.remove('copy-target');
+      // Refresh tie classes for the track
+      const pageOffset = parseInt(targetCell.dataset.step) - parseInt(targetCell.dataset.cell);
+      applySeqTieClasses(t, pageOffset);
+      _copyDragCompleted = true;
+    }
+    if (_copySourceCell) _copySourceCell.classList.remove('copy-source');
+    document.querySelectorAll('.copy-target').forEach(el => el.classList.remove('copy-target'));
+    _copyDragging = false;
+    _copyTrack = -1;
+    _copySourceCell = null;
+  }
   _painting = false;
   _paintMode = null;
   _paintTrack = -1;
@@ -1428,6 +1532,7 @@ function buildTrackRow(grid, t, pageOffset) {
     const next = types[(cur + 1) % types.length];
     seq.setTrackSource(t, next);
     buildSeqGrid();
+    if (activeTrackIdx === t) selectTrack(t);
   });
   row.appendChild(badge);
 
@@ -1574,6 +1679,7 @@ function buildTrackRow(grid, t, pageOffset) {
       cell.addEventListener('click', (e) => {
         if (e.detail > 1) return;
         if (_resizing) return;
+        if (_copyDragCompleted) { _copyDragCompleted = false; return; }
         if (activeTrackIdx !== t) { selectTrack(t); return; }
         // If painting handled it, skip normal click
         if (_painting) return;
@@ -1604,7 +1710,16 @@ function buildTrackRow(grid, t, pageOffset) {
             _startResize(t, s, edge, pageOffset);
             return;
           }
-          return; // let click handle MIDI edit
+          // Start copy-drag: pick up this step's note+vel
+          e.preventDefault();
+          _copyDragging = true;
+          _copyTrack = t;
+          _copyMidi = seq.getStepNote(t, s);
+          _copyVel = seq.getStepVel(t, s);
+          _copySourceStep = s;
+          _copySourceCell = cell;
+          cell.classList.add('copy-source');
+          return;
         }
         e.preventDefault();
         _painting = true;
@@ -1617,6 +1732,13 @@ function buildTrackRow(grid, t, pageOffset) {
         // Resize drag: determine target step from which cell we entered
         if (_resizing && _resizeTrack === t) {
           _handleResizeMove(s);
+          return;
+        }
+        // Copy-drag: highlight target cell
+        if (_copyDragging && _copyTrack === t && s !== _copySourceStep) {
+          // Remove previous hover highlight
+          document.querySelectorAll('.copy-target').forEach(el => el.classList.remove('copy-target'));
+          cell.classList.add('copy-target');
           return;
         }
         if (!_painting || _paintTrack !== t) return;
@@ -1744,6 +1866,11 @@ function buildTrackRow(grid, t, pageOffset) {
   fxBtn.dataset.track = t;
   fxBtn.textContent = 'FX';
   if (_fxPanelTrack === t) fxBtn.classList.add('active');
+  // Highlight if any effect is enabled on this track
+  const fxChain = seq.getTrackChain(t);
+  if (fxChain && (fxChain.getFilterEnabled() || fxChain.getChorusEnabled() || fxChain.getReverbEnabled() || fxChain.getDistortionEnabled())) {
+    fxBtn.classList.add('has-fx');
+  }
   fxBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     toggleTrackFxPanel(t);
@@ -2134,22 +2261,26 @@ function refreshAllUI() {
   ui.setFilterQ(activeEngine.getFilterQ());
   ui.setFilterGain(activeEngine.getFilterGain());
   ui.setADSR(activeEngine.getADSR());
-  ui.setMasterVolume(activeEngine.getMasterVolume());
-  ui.setChorusEnabled(activeEngine.getChorusEnabled ? activeEngine.getChorusEnabled() : false);
-  ui.setChorusRate(activeEngine.getChorusRate ? activeEngine.getChorusRate() : 1.5);
-  ui.setChorusDepth(activeEngine.getChorusDepth ? activeEngine.getChorusDepth() : 3);
-  ui.setChorusMix(activeEngine.getChorusMix ? activeEngine.getChorusMix() : 50);
-  ui.setChorusWidth(activeEngine.getChorusWidth ? activeEngine.getChorusWidth() : 50);
-  ui.setChorusHPC(activeEngine.getChorusHPC ? activeEngine.getChorusHPC() : 200);
-  ui.setReverbEnabled(activeEngine.getReverbEnabled ? activeEngine.getReverbEnabled() : false);
-  ui.setReverbDecay(activeEngine.getReverbDecay ? activeEngine.getReverbDecay() : 2);
-  ui.setReverbMix(activeEngine.getReverbMix ? activeEngine.getReverbMix() : 30);
+  ui.setFilterEnv(activeEngine.getFilterEnv());
+  ui.setMasterVolume(audio.getMasterVolume());
+  ui.setChorusEnabled(audio.getChorusEnabled ? audio.getChorusEnabled() : false);
+  ui.setChorusRate(audio.getChorusRate ? audio.getChorusRate() : 1.5);
+  ui.setChorusDepth(audio.getChorusDepth ? audio.getChorusDepth() : 3);
+  ui.setChorusMix(audio.getChorusMix ? audio.getChorusMix() : 50);
+  ui.setChorusWidth(audio.getChorusWidth ? audio.getChorusWidth() : 50);
+  ui.setChorusHPC(audio.getChorusHPC ? audio.getChorusHPC() : 200);
+  ui.setReverbEnabled(audio.getReverbEnabled ? audio.getReverbEnabled() : false);
+  ui.setReverbDecay(audio.getReverbDecay ? audio.getReverbDecay() : 2);
+  ui.setReverbMix(audio.getReverbMix ? audio.getReverbMix() : 30);
   ui.setLFOWaveform(lfo.getWaveform());
   ui.setLFORate(lfo.getRate());
   ui.setOsc3Mode(activeEngine.getOsc3Mode());
   ui.setOsc3Volume(activeEngine.getOsc3Volume());
   ui.setOsc3Pitch(activeEngine.getOsc3Pitch());
   ui.setOsc3Octave(activeEngine.getOsc3Octave());
+  ui.setNoiseLevel(activeEngine.getNoiseLevel());
+  ui.setRingModLevel(audio.getRingModLevel());
+  ui.setDriveLevel(audio.getDriveLevel());
   buildSeqGrid();
 }
 
@@ -2433,30 +2564,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ui.updateLFORouteIndicators(routes);
   });
 
-  // Set initial UI values
-  ui.setActiveWaveform(1, activeEngine.getWaveform(1));
-  ui.setActiveWaveform(2, activeEngine.getWaveform(2));
-  ui.setVolume(1, activeEngine.getVolume(1));
-  ui.setVolume(2, activeEngine.getVolume(2));
-  ui.setShape(1, activeEngine.getShape(1));
-  ui.setShape(2, activeEngine.getShape(2));
-  ui.setPitch(1, activeEngine.getPitch(1));
-  ui.setPitch(2, activeEngine.getPitch(2));
-  ui.setOctave(1, activeEngine.getOctave(1));
-  ui.setOctave(2, activeEngine.getOctave(2));
-  ui.setFilterType(activeEngine.getFilterType());
-  ui.setFilterModel(activeEngine.getFilterModel());
-  ui.setFilterCutoff(activeEngine.getFilterCutoff());
-  ui.setFilterQ(activeEngine.getFilterQ());
-  ui.setFilterGain(activeEngine.getFilterGain());
-  ui.setADSR(activeEngine.getADSR());
+  // Set initial UI values — select track 0 so there's always a selected track
+  selectTrack(0);
   ui.setPlayMode(playMode);
   ui.setTempo(arp.getBPM());
-  ui.setMasterVolume(activeEngine.getMasterVolume());
+  ui.setMasterVolume(audio.getMasterVolume());
   ui.setArpSettings({ division: arp.getDivision(), mode: arp.getMode(), quantize: arp.getQuantize() });
-  ui.setOsc3Mode(activeEngine.getOsc3Mode());
-  ui.setOsc3Volume(activeEngine.getOsc3Volume());
-  ui.setOsc3Pitch(activeEngine.getOsc3Pitch());
-  ui.setOsc3Octave(activeEngine.getOsc3Octave());
   keyboard.start();
 });

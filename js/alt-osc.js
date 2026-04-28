@@ -63,11 +63,11 @@ export function createStringVoice(ctx, frequency, dest, params) {
   const dispersion = ctx.createBiquadFilter();
   dispersion.type = 'allpass';
   dispersion.frequency.value = frequency * 5;
-  dispersion.Q.value = 0.1 + color * 1.2;
+  dispersion.Q.value = 0.1 + color * 0.6;
 
   // --- Feedback gain: controls sustain ---
   const fb = ctx.createGain();
-  fb.gain.value = 0.95 + (1 - damping) * 0.048;
+  fb.gain.value = 0.92 + (1 - damping) * 0.06;
 
   // --- Output ---
   const outGain = ctx.createGain();
@@ -102,13 +102,13 @@ export function createStringVoice(ctx, frequency, dest, params) {
       const t = ctx.currentTime;
       excFilter.frequency.setTargetAtTime(freq * (1 + v * 8), t, 0.02);
       excFilter.Q.setTargetAtTime(0.7 + (1 - v) * 2, t, 0.02);
-      dispersion.Q.setTargetAtTime(0.1 + v * 1.2, t, 0.02);
+      dispersion.Q.setTargetAtTime(0.1 + v * 0.6, t, 0.02);
     },
     setDamping(v) {
       const t = ctx.currentTime;
       const cut = freq * (2 + (1 - v) * 30);
       loopFilter.frequency.setTargetAtTime(Math.min(cut, ctx.sampleRate / 2 - 100), t, 0.02);
-      fb.gain.setTargetAtTime(0.95 + (1 - v) * 0.048, t, 0.02);
+      fb.gain.setTargetAtTime(0.92 + (1 - v) * 0.06, t, 0.02);
     }
   };
 }
